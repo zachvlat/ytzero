@@ -400,6 +400,24 @@ export interface WatchRelatedSearchResponse {
   restricted?: boolean;
   disabled?: boolean;
 }
+export type LiveChatBadge = "owner" | "moderator" | "verified" | "member";
+export type LiveChatMessageKind = "message" | "paid" | "membership" | "system";
+export interface LiveChatMessage {
+  id: string;
+  kind: LiveChatMessageKind;
+  author: string;
+  authorAvatar: string | null;
+  badges: LiveChatBadge[];
+  text: string;
+  publishedAt: string | null;
+  amount: string | null;
+}
+export interface LiveChatResponse {
+  available: boolean;
+  messages: LiveChatMessage[];
+  continuation: string | null;
+  reason: "unavailable" | "disabled" | "ended" | null;
+}
 export interface ChannelSearchResult {
   channelId: string;
   title: string;

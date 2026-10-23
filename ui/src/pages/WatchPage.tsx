@@ -37,6 +37,7 @@ import { resolvePlaybackSpeeds } from "../../../shared/playbackSpeeds";
 import { formatPlaylistVideoCount, formatTimeAgo, formatViewsCount } from "../i18n";
 import TagChip from "../components/TagChip";
 import WatchRelatedYouTube from "../components/watch/WatchRelatedYouTube";
+import LiveChatPanel from "../components/watch/LiveChatPanel";
 import LocalPlayer from "../components/LocalPlayer";
 import Popconfirm from "../components/Popconfirm";
 import PlaylistPicker from "../components/PlaylistPicker";
@@ -960,6 +961,9 @@ export default function WatchPage() {
         )}
       </div>
       <aside>
+        {video?.live_status === "live" && (
+          <LiveChatPanel videoId={video.video_id} matchHeight={!cinemaMode} matchHeightRef={playerWrapRef} />
+        )}
         {playlistId && playlistVideos.length > 0 && (
           <WatchPlaylistPanel
             activeItemRef={activePlaylistItemRef}
