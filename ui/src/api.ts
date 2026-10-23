@@ -106,6 +106,7 @@ import {
   type VideoInfo,
   type AvailableSubtitle,
   type VideoSubtitle,
+  type WatchRelatedSearchResponse,
   type YtdlpConfig,
   type YtdlpUpdateResult,
 } from "./apiTypes";
@@ -188,6 +189,7 @@ export const api = {
   cleanupUndo: () => http<{ restored: number }>("/cleanup/undo", { method: "POST", body: "{}" }),
   inProgress: () => sharedGet<{ videos: Video[] }>("in-progress", "/in-progress"),
   youtubeSearch: (q: string) => http<{ results: SearchResult[]; channels: ChannelSearchResult[]; restricted?: boolean }>(`/search/youtube?q=${encodeURIComponent(q)}`),
+  watchRelated: (videoId: string) => http<WatchRelatedSearchResponse>(`/search/youtube?related_to=${encodeURIComponent(videoId)}`),
   plugins: () => sharedGet<{ plugins: PluginManifest[] }>("plugins", "/plugins"),
   updatePlugin: (id: string, enabled: boolean) =>
     http<{ plugins: PluginManifest[] }>(`/plugins/${id}`, { method: "PUT", body: JSON.stringify({ enabled }) }),

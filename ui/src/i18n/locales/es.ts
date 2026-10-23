@@ -912,6 +912,8 @@ export const es: Locale = {
     showAllResults: "Mostrar todos los resultados",
     subscribers: "suscriptores",
     moreLikeThis: "Más como este",
+    watchRelatedFromYouTube: "Desde YouTube",
+    watchRelatedSearching: "Buscando en YouTube…",
     commentsTitle: "Comentarios",
     commentsSortLabel: "Ordenar comentarios",
     commentsSortTop: "Más populares",

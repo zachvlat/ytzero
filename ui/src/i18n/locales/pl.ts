@@ -816,6 +816,8 @@ export const pl: Locale = {
     showAllResults: "Pokaż wszystkie wyniki",
     subscribers: "subskrybentów",
     moreLikeThis: "Więcej podobnych",
+    watchRelatedFromYouTube: "Z YouTube",
+    watchRelatedSearching: "Wyszukiwanie w YouTube…",
     commentsTitle: "Komentarze",
     commentsSortLabel: "Sortuj komentarze",
     commentsSortTop: "Najpopularniejsze",

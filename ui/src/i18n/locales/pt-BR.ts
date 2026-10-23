@@ -908,6 +908,8 @@ export const ptBR: Locale = {
     "showAllResults": "Mostrar todos os resultados",
     "subscribers": "assinantes",
     "moreLikeThis": "Mais assim.",
+    "watchRelatedFromYouTube": "Do YouTube",
+    "watchRelatedSearching": "Pesquisando no YouTube…",
     "commentsTitle": "Observações",
     "commentsSortLabel": "Ordenar comentários",
     "commentsSortTop": "Mais populares",

@@ -3,8 +3,9 @@ import { database } from "../database";
 import { childLocalOnly, isChildUser } from "../childTime";
 import { profileDownloadsEnabled } from "../downloadConfig";
 import { cancelAutoDownloadIfUnwanted } from "../downloader";
-import { refreshDiscoveryInBackground } from "../plugins";
+import { pluginEnabled, refreshDiscoveryInBackground } from "../plugins";
 import { searchYouTube } from "../youtube";
+import { searchWatchRelated } from "../watchRelated";
 import { feedSortSql, shortsUiVisibilitySql } from "../feedQuery";
 import { buildCleanupWhere, countCleanupMatches, listCleanupVideoIds, snapshotUserVideoState, applyCleanupAction, restoreUserVideoState, saveBulkUndo, loadBulkUndo, clearBulkUndo, type CleanupFilter } from "../cleanup";
 import { videoSelect, type VideoRow } from "../videoRoutesSupport";
@@ -102,6 +103,15 @@ api.get("/search/youtube", async (c) => {
   // the client this is a profile boundary rather than a search that found
   // nothing, so it can say so instead of showing an empty result list.
   if (childLocalOnly(uid)) return c.json({ results: [], channels: [], restricted: true });
+  const relatedTo = c.req.query("related_to")?.trim();
+  if (relatedTo) {
+    if (!pluginEnabled("watch-search")) return c.json({ results: [], channels: [], disabled: true });
+    try {
+      return c.json({ results: await searchWatchRelated(uid, relatedTo), channels: [] });
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+    }
+  }
   const q = c.req.query("q");
   if (!q?.trim()) return c.json({ results: [] });
   try {

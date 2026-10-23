@@ -816,6 +816,8 @@ export const en = {
     showAllResults: "Show all results",
     subscribers: "subscribers",
     moreLikeThis: "More like this",
+    watchRelatedFromYouTube: "From YouTube",
+    watchRelatedSearching: "Searching YouTube…",
     commentsTitle: "Comments",
     commentsSortLabel: "Sort comments",
     commentsSortTop: "Most popular",

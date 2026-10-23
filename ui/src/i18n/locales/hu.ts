@@ -813,6 +813,8 @@ export const hu: Locale = {
     showAllResults: "Összes találat megjelenítése",
     subscribers: "feliratkozó",
     moreLikeThis: "Hasonlók",
+    watchRelatedFromYouTube: "YouTube-ról",
+    watchRelatedSearching: "Keresés a YouTube-on…",
     commentsTitle: "Hozzászólások",
     commentsSortLabel: "Hozzászólások rendezése",
     commentsSortTop: "Legnépszerűbb",

@@ -908,6 +908,8 @@ export const fr: Locale = {
     "showAllResults": "Afficher tous les résultats",
     "subscribers": "abonnés",
     "moreLikeThis": "Plus comme ça",
+    "watchRelatedFromYouTube": "Depuis YouTube",
+    "watchRelatedSearching": "Recherche sur YouTube…",
     "commentsTitle": "Commentaires",
     "commentsSortLabel": "Trier les commentaires",
     "commentsSortTop": "Les plus populaires",

@@ -908,6 +908,8 @@ export const ja: Locale = {
     "showAllResults": "すべての結果を表示",
     "subscribers": "サブスクリプション",
     "moreLikeThis": "こんな感じです。",
+    "watchRelatedFromYouTube": "YouTube から",
+    "watchRelatedSearching": "YouTube を検索中…",
     "commentsTitle": "コメント",
     "commentsSortLabel": "コメントをソート",
     "commentsSortTop": "最も人気のある",

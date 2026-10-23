@@ -908,6 +908,8 @@ export const ru: Locale = {
     "showAllResults": "Показать все результаты",
     "subscribers": "подписчики",
     "moreLikeThis": "Больше похоже на это",
+    "watchRelatedFromYouTube": "С YouTube",
+    "watchRelatedSearching": "Поиск на YouTube…",
     "commentsTitle": "Комментарий",
     "commentsSortLabel": "Сортировать комментарии",
     "commentsSortTop": "Самый популярный",

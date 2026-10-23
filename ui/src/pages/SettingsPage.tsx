@@ -897,7 +897,7 @@ export default function SettingsPage({ showToast }: { showToast: (m: string) => 
                 <div className="plugin-modal" role="dialog" aria-modal="true" aria-labelledby="plugin-settings-title" onMouseDown={(e) => e.stopPropagation()}>
                   <div className="plugin-modal-hero">
                     <div className="plugin-modal-icon" aria-hidden="true">
-                      {plugin.icon === "Sparkles" ? <Sparkles /> : plugin.icon === "Download" ? <Download /> : plugin.icon === "UsersRound" ? <UsersRound /> : plugin.icon === "BellRing" ? <BellRing /> : <Plug />}
+                      {plugin.icon === "Sparkles" ? <Sparkles /> : plugin.icon === "Download" ? <Download /> : plugin.icon === "UsersRound" ? <UsersRound /> : plugin.icon === "BellRing" ? <BellRing /> : plugin.icon === "Search" ? <Search /> : <Plug />}
                     </div>
                     <div className="plugin-modal-identity">
                       <div className="plugin-modal-eyebrow">{t("pluginDetailsLabel")}</div>

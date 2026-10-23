@@ -903,6 +903,18 @@ body.cinema .watch-layout.theater .watch-actions .ui-button--secondary:not(.ui-p
 
 /* related list */
 .related-title { font-size: 15px; font-weight: 700; margin: 0 0 12px; }
+.related-source-switch { margin-bottom: 12px; }
+.related-source-switch .ui-segmented { display: grid; width: 100%; }
+.watch-layout.theater .related-source-switch { grid-column: 1 / -1; margin-top: 16px; }
+.watch-related-youtube-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 12px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+.watch-layout.theater .watch-related-youtube-loading { grid-column: 1 / -1; }
 .related-item {
   display: flex;
   gap: 10px;
