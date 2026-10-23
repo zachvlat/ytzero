@@ -14,9 +14,10 @@ import { videoExistsStmt, videoSelect, type VideoRow } from "../videoRoutesSuppo
 import { registerVideoCommentRoutes } from "./videoCommentRoutes";
 import { importExternalVideoInfo, type VideoInfoImportResult } from "../externalVideoInfoImport";
 import { refreshExternalWatchVideo } from "../externalVideoRefresh";
-import { isYouTubeRefusalError, youtubeRefusalGate } from "../youtubeRateLimit";
+import { isYouTubeRateLimitError, isYouTubeRefusalError, youtubeRefusalGate } from "../youtubeRateLimit";
 import { AsyncTtlCache } from "../asyncTtlCache";
 import { resolveYouTubeLanguage } from "../youtubeRequestLanguage";
+import { fetchLiveChat } from "../liveChat";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
@@ -478,6 +479,32 @@ api.get("/videos/:id", async (c) => {
   (video as any).channel_caption_language = channelPlayerRow?.caption_language ?? null;
 
   return c.json({ video, related: await attachTags(uid, related) });
+});
+
+api.post("/videos/:id/live-chat", async (c) => {
+  c.header("Cache-Control", "no-store");
+  const uid = currentUserId(c);
+  const videoId = c.req.param("id");
+  if (!validYouTubeVideoId(videoId)) return c.json({ error: "invalid video id" }, 400);
+  if (childHidesLive(uid)) {
+    return c.json({ error: "live streams are disabled for this profile" }, 403);
+  }
+  const body = await c.req.json<{ continuation?: unknown }>().catch(() => ({} as { continuation?: unknown }));
+  const continuation = typeof body.continuation === "string" && body.continuation.length <= 4_096
+    ? body.continuation
+    : undefined;
+  try {
+    return c.json(await fetchLiveChat(uid, videoId, continuation));
+  } catch (error) {
+    if (isYouTubeRateLimitError(error)) {
+      return c.json({ error: "YouTube rate limit", available: false, messages: [], continuation: null, reason: "unavailable" }, 429);
+    }
+    log.warn("live_chat.fetch_failed", {
+      videoId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return c.json({ error: "live chat unavailable", available: false, messages: [], continuation: null, reason: "unavailable" }, 502);
+  }
 });
 
 }

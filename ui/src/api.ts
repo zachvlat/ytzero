@@ -66,6 +66,7 @@ import {
   type ImportCommitPayload,
   type ImportCommitResult,
   type ImportManifest,
+  type LiveChatResponse,
   type MembersOnlyVisibility,
   type ManagedPublicShare,
   type NotificationCategory,
@@ -188,6 +189,11 @@ export const api = {
   cleanupUndo: () => http<{ restored: number }>("/cleanup/undo", { method: "POST", body: "{}" }),
   inProgress: () => sharedGet<{ videos: Video[] }>("in-progress", "/in-progress"),
   youtubeSearch: (q: string) => http<{ results: SearchResult[]; channels: ChannelSearchResult[]; restricted?: boolean }>(`/search/youtube?q=${encodeURIComponent(q)}`),
+  liveChat: (videoId: string, continuation?: string | null) =>
+    http<LiveChatResponse>(`/videos/${encodeURIComponent(videoId)}/live-chat`, {
+      method: "POST",
+      body: JSON.stringify(continuation ? { continuation } : {}),
+    }),
   plugins: () => sharedGet<{ plugins: PluginManifest[] }>("plugins", "/plugins"),
   updatePlugin: (id: string, enabled: boolean) =>
     http<{ plugins: PluginManifest[] }>(`/plugins/${id}`, { method: "PUT", body: JSON.stringify({ enabled }) }),
