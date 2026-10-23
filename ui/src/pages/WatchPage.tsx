@@ -36,6 +36,7 @@ import { api, SB_CATEGORIES } from "../api";
 import { resolvePlaybackSpeeds } from "../../../shared/playbackSpeeds";
 import { formatPlaylistVideoCount, formatTimeAgo, formatViewsCount } from "../i18n";
 import TagChip from "../components/TagChip";
+import WatchRelatedYouTube from "../components/watch/WatchRelatedYouTube";
 import LocalPlayer from "../components/LocalPlayer";
 import Popconfirm from "../components/Popconfirm";
 import PlaylistPicker from "../components/PlaylistPicker";
@@ -44,7 +45,7 @@ import { VideoThumbnail, watchProgress } from "../components/VideoThumbnail";
 import { SchedulePicker, VideoScheduleActions } from "../components/VideoScheduleActions";
 import UpNextOverlay from "../components/UpNextOverlay";
 import { img, videoThumbnail } from "../img";
-import { Alert, Button, ButtonAnchor, Checkbox, IconButton, LocalToast, Menu, MenuItem, MenuSeparator, MenuStatus, Popover, ScrollArea, Switch } from "../components/ui";
+import { Alert, Button, ButtonAnchor, Checkbox, IconButton, LocalToast, Menu, MenuItem, MenuSeparator, MenuStatus, Popover, ScrollArea, SegmentedControl, Switch } from "../components/ui";
 import { WatchPanel } from "../components/WatchPanel";
 import VideoCreators from "../components/VideoCreators";
 import { SessionPlayQueueAction } from "../components/SessionPlayQueueAction";
@@ -230,6 +231,11 @@ export default function WatchPage() {
     videoPlaylists,
     waitError,
     waitProgress,
+    watchRelatedEnabled,
+    watchRelatedLoading,
+    watchRelatedResults,
+    watchRelatedSource,
+    setWatchRelatedSource,
     watchTogether,
     watchTogetherEnabled,
     watchTogetherRoomId,
@@ -965,50 +971,69 @@ export default function WatchPage() {
             videos={playlistVideos}
           />
         )}
-        {showRelated && <>
-        <h2 className="related-title">{t("moreLikeThis")}</h2>
-        {related.filter((v) => v.is_short === 0 && v.watched !== 1).map((v) => (
-          <div key={v.video_id} className="related-item">
-            <div className="related-thumb-shell">
-              <Link className="related-thumb-link" to={`/watch/${v.video_id}`} aria-label={v.title} title={v.title}>
-                <VideoThumbnail src={img(v.thumbnail)} watched={v.watched === 1} progress={watchProgress(v.watch_position, v.watch_duration)} variant="related" loading="lazy">
-                  {v.live_status === "live" && (
-                    <span className="live-badge">
-                      <span className="pulse" /> {t("liveBadge")}
-                    </span>
-                  )}
-                  {v.duration && v.is_short !== 1 && (
-                    <span className="duration-badge">{formatVideoDuration(v.duration)}</span>
-                  )}
-                </VideoThumbnail>
-              </Link>
-              {(showSchedulingRow || showSessionQueueAction) && <div className="related-card-actions">
-                {showSchedulingRow && <VideoScheduleActions
-                  video={v}
-                  variant="compact"
-                  onToggle={(event, bucket, active) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    toggleRelatedSchedule(v, bucket, active).catch(console.error);
-                  }}
-                />}
-                {showSessionQueueAction && <div className="related-card-actions__secondary">
-                  <SessionPlayQueueAction video={v} compact />
-                </div>}
-              </div>}
-            </div>
-            <div className="related-item-info">
-              <Link className="r-title" to={`/watch/${v.video_id}`} title={v.title}>{v.title}</Link>
-              <div className="r-meta">
-                {v.channel_title}
-                <br />
-                {v.views != null && `${formatViewsCount(v.views, language)} · `}
-                {formatTimeAgo(v.published_at, language)}
+        {showRelated && (
+          <>
+            {watchRelatedEnabled ? (
+              <div className="related-source-switch">
+                <SegmentedControl
+                  label={t("watchShowRelated")}
+                  value={watchRelatedSource}
+                  onChange={setWatchRelatedSource}
+                  options={[
+                    { value: "local", label: t("moreLikeThis") },
+                    { value: "youtube", label: t("watchRelatedFromYouTube") },
+                  ]}
+                />
               </div>
-            </div>
-          </div>
-        ))}
-        </>}
+            ) : (
+              <h2 className="related-title">{t("moreLikeThis")}</h2>
+            )}
+            {(watchRelatedSource === "local" || !watchRelatedEnabled) && related.filter((v) => v.is_short === 0 && v.watched !== 1).map((v) => (
+              <div key={v.video_id} className="related-item">
+                <div className="related-thumb-shell">
+                  <Link className="related-thumb-link" to={`/watch/${v.video_id}`} aria-label={v.title} title={v.title}>
+                    <VideoThumbnail src={img(v.thumbnail)} watched={v.watched === 1} progress={watchProgress(v.watch_position, v.watch_duration)} variant="related" loading="lazy">
+                      {v.live_status === "live" && (
+                        <span className="live-badge">
+                          <span className="pulse" /> {t("liveBadge")}
+                        </span>
+                      )}
+                      {v.duration && v.is_short !== 1 && (
+                        <span className="duration-badge">{formatVideoDuration(v.duration)}</span>
+                      )}
+                    </VideoThumbnail>
+                  </Link>
+                  {(showSchedulingRow || showSessionQueueAction) && <div className="related-card-actions">
+                    {showSchedulingRow && <VideoScheduleActions
+                      video={v}
+                      variant="compact"
+                      onToggle={(event, bucket, active) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        toggleRelatedSchedule(v, bucket, active).catch(console.error);
+                      }}
+                    />}
+                    {showSessionQueueAction && <div className="related-card-actions__secondary">
+                      <SessionPlayQueueAction video={v} compact />
+                    </div>}
+                  </div>}
+                </div>
+                <div className="related-item-info">
+                  <Link className="r-title" to={`/watch/${v.video_id}`} title={v.title}>{v.title}</Link>
+                  <div className="r-meta">
+                    {v.channel_title}
+                    <br />
+                    {v.views != null && `${formatViewsCount(v.views, language)} · `}
+                    {formatTimeAgo(v.published_at, language)}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {watchRelatedEnabled && watchRelatedSource === "youtube" && (
+              <WatchRelatedYouTube results={watchRelatedResults} loading={watchRelatedLoading} />
+            )}
+          </>
+        )}
       </aside>
       {video && <SocialShareDialog
         open={socialShareOpen}

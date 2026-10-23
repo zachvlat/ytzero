@@ -5,7 +5,7 @@ import { scheduleSettingWrite } from "../settingsWriteQueue";
 import { flushProgressWrite, queueProgressWrite } from "../progressWriteQueue";
 import { isIncognitoMode } from "../incognitoMode";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, type AppSettings, type Bucket, type ChildOwnDownloadRequest, type PlaylistVideo, type SponsorSegment, type UserPlaylist, type Video, type VideoChapter, type VideoChannelPlaylist, type VideoCreator, type VideoInfo } from "../api";
+import { api, type AppSettings, type Bucket, type ChildOwnDownloadRequest, type PlaylistVideo, type SponsorSegment, type UserPlaylist, type Video, type VideoChapter, type VideoChannelPlaylist, type VideoCreator, type VideoInfo, type WatchRelatedSearchResult } from "../api";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
 import { parseVideoDurationSeconds } from "../components/VideoCard";
@@ -87,6 +87,10 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const [socialEnabled, setSocialEnabled] = useState(false);
   const [watchTogetherEnabled, setWatchTogetherEnabled] = useState(false);
   const [socialConfigReady, setSocialConfigReady] = useState(false);
+  const [watchRelatedEnabled, setWatchRelatedEnabled] = useState(false);
+  const [watchRelatedSource, setWatchRelatedSource] = useState<"local" | "youtube">("local");
+  const [watchRelatedResults, setWatchRelatedResults] = useState<WatchRelatedSearchResult[]>([]);
+  const [watchRelatedLoading, setWatchRelatedLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Withheld until settings load: for a profile that turned suggestions off,
   // rendering them first and pulling them away is worse than a brief gap.
@@ -101,6 +105,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
       setSocialConfigReady(false);
       try {
         const { plugins } = await api.plugins();
+        setWatchRelatedEnabled(Boolean(plugins.find((plugin) => plugin.id === "watch-search")?.enabled));
         const enabled = Boolean(plugins.find((plugin) => plugin.id === "social")?.enabled);
         setSocialEnabled(enabled);
         if (!enabled) {
@@ -112,6 +117,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
       } catch {
         setSocialEnabled(false);
         setWatchTogetherEnabled(false);
+        setWatchRelatedEnabled(false);
       } finally {
         setSocialConfigReady(true);
       }
@@ -119,6 +125,11 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     void loadSocial();
     return subscribe("plugins-changed", loadSocial);
   }, []);
+  // The From YouTube list only exists while its plugin is enabled. Fall back to
+  // the local list if the plugin is disabled while the page is open.
+  useEffect(() => {
+    if (!watchRelatedEnabled) setWatchRelatedSource("local");
+  }, [watchRelatedEnabled]);
   const [playbackPolicy, setPlaybackPolicy] = useState<{
     ready: boolean;
     downloadsEnabled: boolean;
@@ -710,6 +721,43 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     }
     return () => { cancelled = true; };
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !showRelated || !watchRelatedEnabled || watchRelatedSource !== "youtube") {
+      setWatchRelatedResults([]);
+      setWatchRelatedLoading(false);
+      return;
+    }
+    if (!matchingVideo) {
+      setWatchRelatedResults([]);
+      setWatchRelatedLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setWatchRelatedLoading(true);
+    setWatchRelatedResults([]);
+    api
+      .watchRelated(matchingVideo.video_id)
+      .then((response) => {
+        if (cancelled) return;
+        if (response.restricted || response.disabled) {
+          setWatchRelatedResults([]);
+          return;
+        }
+        setWatchRelatedResults(response.results ?? []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setWatchRelatedResults([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setWatchRelatedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, matchingVideo?.video_id, showRelated, watchRelatedEnabled, watchRelatedSource]);
 
   // When a video finishes: record completion, advance the playlist if any.
   const handleEnded = useCallback(() => {
@@ -1606,6 +1654,11 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     videoPlaylists,
     waitError,
     waitProgress,
+    watchRelatedEnabled,
+    watchRelatedLoading,
+    watchRelatedResults,
+    watchRelatedSource,
+    setWatchRelatedSource,
     watchTogether,
     watchTogetherEnabled,
     watchTogetherRoomId,

@@ -393,6 +393,13 @@ export interface SearchResult {
   downloads_enabled: boolean;
   downloads_allowed: boolean;
 }
+export type WatchRelatedSearchResult = Pick<SearchResult, "videoId" | "title" | "thumbnail" | "duration" | "channelId" | "channelTitle" | "channelAvatar" | "viewCount" | "published">;
+export interface WatchRelatedSearchResponse {
+  results: WatchRelatedSearchResult[];
+  channels?: ChannelSearchResult[];
+  restricted?: boolean;
+  disabled?: boolean;
+}
 export interface ChannelSearchResult {
   channelId: string;
   title: string;
