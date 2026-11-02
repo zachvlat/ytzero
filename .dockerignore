@@ -3,3 +3,20 @@
 data
 .git
 README.md
+
+# Built binaries
+ytzero
+ytzero-*
+*.exe
+
+# Environment
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# Tests
+*.test.ts
+coverage/

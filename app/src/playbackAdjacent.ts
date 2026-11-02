@@ -114,7 +114,7 @@ async function orderedVideoIds(userId: number, context: Exclude<PlaybackContext,
   }
   if (context.kind === "recommendations") return recommendationQueueVideoIds(userId, { downloadsOnly: childDownloadsOnly(userId) });
   if (context.kind === "in-progress") {
-    return (await database.prepare(`SELECT uv.video_id FROM user_videos uv JOIN (SELECT video_id,MAX(watched_at) last_watched FROM history WHERE user_id=? GROUP BY video_id) lw ON lw.video_id=uv.video_id JOIN videos v ON v.video_id=uv.video_id WHERE uv.user_id=? AND v.published_at IS NOT NULL AND v.published_at!='' AND uv.watch_position IS NOT NULL AND uv.watch_duration>30 AND uv.watch_position>=3 AND CAST(uv.watch_position AS REAL)/uv.watch_duration<0.92 AND uv.status='inbox' AND ${shortsUiVisibilitySql(userId)} ORDER BY lw.last_watched DESC,uv.video_id DESC`).all(userId, userId) as { video_id: string }[]).map((row) => row.video_id);
+    return [];
   }
   const due = context.dueOnly ? "AND (uv.show_from IS NULL OR uv.show_from <= datetime('now'))" : "";
   const rows = await database.prepare(`SELECT v.video_id,uv.bucket,uv.show_from,uv.queued_at,v.duration,v.title,COALESCE(c.custom_title,c.title) channel_title FROM user_videos uv JOIN videos v ON v.video_id=uv.video_id JOIN channels c ON c.channel_id=v.channel_id WHERE uv.user_id=? AND uv.status='queued' AND ${shortsUiVisibilitySql(userId)} ${due} ORDER BY uv.queued_at DESC,v.video_id DESC`).all(userId) as WatchlistRow[];

@@ -231,17 +231,6 @@ async function videosByIds(userId: number, ids: readonly string[], attachTags: A
 }
 
 async function systemVideoIds(userId: number): Promise<ComposerState["systemVideoIds"]> {
-  const continuing = await database.prepare(`
-    SELECT uv.video_id
-    FROM user_videos uv
-    JOIN videos v ON v.video_id=uv.video_id
-    JOIN (SELECT video_id, MAX(watched_at) AS last_watched FROM history WHERE user_id=? GROUP BY video_id) lw ON lw.video_id=v.video_id
-    WHERE uv.user_id=? AND v.published_at IS NOT NULL AND v.published_at!=''
-      AND uv.watch_position IS NOT NULL AND uv.watch_duration IS NOT NULL AND uv.watch_duration>30
-      AND uv.watch_position>=3 AND CAST(uv.watch_position AS REAL)/uv.watch_duration<0.92
-      AND COALESCE(uv.status, 'inbox')='inbox' AND COALESCE(v.is_short, 0)=0
-    ORDER BY lw.last_watched DESC LIMIT 20
-  `).all<{ video_id: string }>(userId, userId);
   const scheduled = await database.prepare(`
     SELECT uv.video_id FROM user_videos uv JOIN videos v ON v.video_id=uv.video_id
     WHERE uv.user_id=? AND uv.status='queued' AND uv.bucket IS NOT NULL
@@ -250,7 +239,7 @@ async function systemVideoIds(userId: number): Promise<ComposerState["systemVide
       uv.show_from ASC, uv.queued_at DESC
   `).all<{ video_id: string }>(userId);
   return {
-    continueWatching: continuing.map((row) => row.video_id),
+    continueWatching: [],
     scheduled: scheduled.map((row) => row.video_id),
   };
 }

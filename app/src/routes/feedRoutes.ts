@@ -143,13 +143,7 @@ api.get("/feed/adjacent", async (c) => {
   const comparison = direction === "oldest" ? ">" : "<";
   where.push(`(${sortColumn} ${comparison} ? OR (${sortColumn} = ? AND v.video_id ${comparison} ?))`);
   params.push(anchorTime, anchorTime, anchor.video_id);
-  // FeedPage lifts meaningful partials into its separate Continue shelf, so
-  // the chronological grid's queue must skip them too.
-  where.push(`NOT (
-    uv.watch_position IS NOT NULL AND uv.watch_duration IS NOT NULL
-    AND uv.watch_duration > 30 AND uv.watch_position >= 3
-    AND CAST(uv.watch_position AS REAL) / uv.watch_duration < 0.92
-  )`);
+  // Keep partials in the feed grid as requested.
   const whereSql = `WHERE ${where.join(" AND ")}`;
   const orderDirection = direction === "oldest" ? "ASC" : "DESC";
   const order = `${sortColumn} ${orderDirection}, v.video_id ${orderDirection}`;

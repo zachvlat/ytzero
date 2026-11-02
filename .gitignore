@@ -9,3 +9,16 @@ data/
 *.db-shm
 .DS_Store
 .claude
+
+# Built binaries
+ytzero
+ytzero-*
+*.exe
+
+# Local environment
+.env
+.env.local
+
+# Logs
+logs/
+*.log
