@@ -15,43 +15,7 @@
 </div>
 
 > [!IMPORTANT]
-> After a lot of thought, I’ve decided to step away from maintaining YT Zero.
->
-> The main reason is uncertainty around the legal side of how some of the underlying software and integrations are being used. I don’t want to continue developing and publicly distributing the project while I’m not fully comfortable with that uncertainty.
->
-> The current release will therefore be the second-to-last public release maintained by me. I plan to make 2026.09.10 the final one. For that release, I’ll try to address as many existing issues and fixes as reasonably possible, so the project is left in a solid and usable state rather than abandoned mid-way through ongoing work. I’ll also try to bring the tvOS app to a usable state, so that whoever takes over the project has a working foundation to continue from instead of having to start that part from scratch.
->
-> That said, I don’t want YT Zero to disappear. If someone from the community would like to take responsibility for the project and continue its development, you have my full blessing to do so. I'm glad that the project will live on under a new maintainer.
->
-> There is also a chance that I may revisit the idea in the future using only clearly supported and official paths, such as RSS and the official YouTube API. At the moment, however, I have no plans to do so. That would also mean changing some of the original assumptions behind YT Zero, and it would no longer be quite the same project I originally wanted to build.
->
-> If that ever changes or you want to know what else I'll be releasing in the future, you can follow me here on [GitHub/pelski](https://github.com/Pelski) or [X.com/@m_pelski](https://x.com/m_pelski).
->
-> Thank you to everyone who contributed code, testing, translations, research, bug reports, ideas, discussions, and feedback. The project became much better than anything I could have built alone. Thank you and I am incredibly grateful to each and every one of you ❤️ 
->
-> Special thanks to:
->
-> - @Taruvi
-> - @baldemar-wuda
-> - @xtrandom
-> - @famousbart
-> - @DennaGherlyn
-> - @techtareffic-cloud
-> - @shinji257
-> - @Zan1456
-> - @cerede2000
-> - @Green-Kite
-> - An anonymous person I corresponded with over email, with whom I had many interesting conversations not only about the project
->
-> Your work, testing, ideas and time genuinely shaped YT Zero. And thank you to everyone who used it, opened an issue, submitted a contribution, recommended it to someone else, or simply followed the project.
->
-> It has been a genuinely interesting project to build, and I’m glad it found a community around it.
->
-> Take care of it, and thanks for watching.
-
-> **Fix embedded player and get more!** 
-> 
-> Companion extensions are already available for **Firefox and Chrome/Chromium**: [YT Zero Enhance](https://github.com/Pelski/ytzero-enhance) upgrades playback with reliable controls, shortcuts, chapters, SponsorBlock, picture-in-picture and more. See the [browser extension guide](https://github.com/Pelski/ytzero/wiki/Browser-Extensions) to get started.
+> This is my personal fork of YT Zero which its dev has stepped down (for the time being) catering my own needs. I 'm not intending on continuing the project.
 
 It reads public YouTube RSS feeds, stores everything in your own SQLite or PostgreSQL database, and gives you a calm place to sort, schedule, watch, archive, and revisit videos from creators you already follow. With the optional [yt-dlp](https://github.com/yt-dlp/yt-dlp) integration it can even download those videos and play them from disk, in its own player.
 
