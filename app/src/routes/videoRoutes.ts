@@ -3,7 +3,8 @@ import { publishAppEvent } from "../appEvents";
 import { database } from "../database";
 import { getUserSetting } from "../db";
 import { fetchVideoChapters, fetchVideoCreators, fetchVideoInfo } from "../youtube";
-import { discoveryRecommendations, dismissDiscoveryRecommendation, recommendationFeed, refreshDiscoveryInBackground, refreshDiscoveryNow } from "../plugins";
+import { discoveryRecommendations, dismissDiscoveryRecommendation, pluginEnabled, recommendationFeed, refreshDiscoveryInBackground, refreshDiscoveryNow } from "../plugins";
+import { regionalLiveForUser } from "../regionalLive";
 import { validYouTubeVideoId } from "../youtubeComments";
 import { childDownloadsOnly, childHidesLive, childLocalOnly, isChildUser, isParentLocked } from "../childTime";
 import { followedExists, profileVideoOwnershipExists, shortsUiVisibilitySql } from "../feedQuery";
@@ -117,6 +118,17 @@ api.get("/live", async (c) => {
     .prepare(`${videoSelect(uid)} WHERE v.live_status IN ('live','upcoming') AND ${followedExists(uid)} ORDER BY v.live_status = 'live' DESC, v.published_at DESC`)
     .all() as VideoRow[];
   return c.json({ videos: await attachTags(uid, rows) });
+});
+
+api.get("/live/youtube", async (c) => {
+  const uid = currentUserId(c);
+  if (childHidesLive(uid) || childLocalOnly(uid)) return c.json({ region: null, videos: [], restricted: true });
+  if (!pluginEnabled("live-discovery")) return c.json({ region: null, videos: [], disabled: true });
+  try {
+    return c.json(await regionalLiveForUser(uid));
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
 });
 
 // Unlike the global Live page, a channel page can be opened before the channel

@@ -400,7 +400,22 @@ export interface WatchRelatedSearchResponse {
   restricted?: boolean;
   disabled?: boolean;
 }
-export type LiveChatBadge = "owner" | "moderator" | "verified" | "member";
+export interface RegionalLiveVideo {
+  videoId: string;
+  title: string;
+  thumbnail: string;
+  channelId: string;
+  channelTitle: string;
+  channelAvatar: string | null;
+  viewers: number | null;
+}
+export interface RegionalLiveResponse {
+  region: string | null;
+  videos: RegionalLiveVideo[];
+  restricted?: boolean;
+  disabled?: boolean;
+}
+export type LiveChatBadge ="owner" | "moderator" | "verified" | "member";
 export type LiveChatMessageKind = "message" | "paid" | "membership" | "system";
 export interface LiveChatMessage {
   id: string;

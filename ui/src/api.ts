@@ -85,6 +85,7 @@ import {
   type AccessControlSnapshot,
   type RecommendationsRequest,
   type RecommendationsResponse,
+  type RegionalLiveResponse,
   type RestoreAnalysis,
   type Rule,
   type SearchResult,
@@ -311,6 +312,7 @@ export const api = {
     http<NotificationDelivery>("/notification-preferences/delivery", { method: "PUT", body: JSON.stringify(input) }),
   testNotificationDelivery: () => http<{ ok: true }>("/notification-preferences/delivery/test", { method: "POST", body: "{}" }),
   live: () => http<{ videos: Video[] }>("/live"),
+  liveYouTube: () => http<RegionalLiveResponse>("/live/youtube"),
   channelLive: (id: string) => http<{ videos: Video[] }>(`/channels/${id}/live`),
   video: (id: string) => sharedGet<{ video: Video; related: Video[] }>(`video:${id}`, `/videos/${id}`),
   videoComments: (id: string, sort: VideoCommentSort = "top", refresh = false) =>

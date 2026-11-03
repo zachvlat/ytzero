@@ -208,6 +208,14 @@ export const PLUGINS: PluginManifest[] = [
     permissions: ["read:library", "search:youtube"],
   },
   {
+    id: "live-discovery",
+    name: "Live on YouTube",
+    version: "0.1.0",
+    description: "Adds the most watched live streams in your region to the Live page.",
+    icon: "Radio",
+    permissions: ["read:library", "search:youtube"],
+  },
+  {
     id: "social",
     name: "Social",
     version: "0.1.0",
@@ -248,6 +256,18 @@ export const PLUGIN_TEXT: Record<string, { name: LocalizedText; description: Loc
     permissions: {
       "read:library": { en: "reads the current video's title, channel and tags", pl: "czyta tytuł, kanał i tagi bieżącego filmu", de: "liest Titel, Kanal und Tags des aktuellen Videos" },
       "search:youtube": { en: "searches YouTube for related videos", pl: "szuka powiązanych filmów w YouTube", de: "sucht auf YouTube nach ähnlichen Videos" },
+    },
+  },
+  "live-discovery": {
+    name: { en: "Live on YouTube", pl: "Na żywo w YouTube", de: "Live auf YouTube" },
+    description: {
+      en: "Adds the most watched live streams in your region to the Live page.",
+      pl: "Dodaje do strony Na żywo najczęściej oglądane transmisje w Twoim regionie.",
+      de: "Fügt der Live-Seite die meistgesehenen Livestreams in deiner Region hinzu.",
+    },
+    permissions: {
+      "read:library": { en: "reads which channels you follow", pl: "czyta, które kanały obserwujesz", de: "liest, welchen Kanälen du folgst" },
+      "search:youtube": { en: "loads the live streams YouTube lists for your region", pl: "pobiera transmisje na żywo, które YouTube pokazuje dla Twojego regionu", de: "lädt die Livestreams, die YouTube für deine Region anzeigt" },
     },
   },
   discovery: {

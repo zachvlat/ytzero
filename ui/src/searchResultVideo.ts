@@ -1,4 +1,4 @@
-import type { SearchResult, Video } from "./apiTypes";
+import type { RegionalLiveVideo, SearchResult, Video } from "./apiTypes";
 
 export function approximatePublishedAt(published: SearchResult["published"], now = new Date()): string | null {
   if (!published) return null;
@@ -49,5 +49,30 @@ export function searchResultVideo(result: SearchResult, now = new Date()): Video
     downloads_allowed: result.downloads_allowed,
     download_progress: null,
     tags: [],
+  };
+}
+
+/** Adapt a regional YouTube live stream to the VideoCard contract. */
+export function regionalLiveVideo(live: RegionalLiveVideo, now = new Date()): Video {
+  return {
+    ...searchResultVideo({
+      videoId: live.videoId,
+      title: live.title,
+      thumbnail: live.thumbnail,
+      duration: "",
+      channelId: live.channelId,
+      channelTitle: live.channelTitle,
+      channelAvatar: live.channelAvatar,
+      viewCount: null,
+      published: null,
+      watched: 0,
+      watch_position: null,
+      watch_duration: null,
+      bucket: null,
+      download_status: null,
+      downloads_enabled: false,
+      downloads_allowed: false,
+    }, now),
+    live_status: "live",
   };
 }

@@ -179,12 +179,12 @@ function extractVariable(html: string, name: string): any | null {
   return null;
 }
 
-function extractInitialData(html: string): any | null {
+export function extractInitialData(html: string): any | null {
   return extractVariable(html, "ytInitialData");
 }
 
 /** Collect every value stored under the given key anywhere in a JSON tree. */
-function deepCollect(node: any, key: string, out: any[] = []): any[] {
+export function deepCollect(node: any, key: string, out: any[] = []): any[] {
   if (!node || typeof node !== "object") return out;
   if (Array.isArray(node)) {
     for (const item of node) deepCollect(item, key, out);

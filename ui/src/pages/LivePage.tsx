@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import "./LivePage.css";
 import { Link } from "react-router-dom";
-import { api, type Video } from "../api";
+import { api, type RegionalLiveResponse, type Video } from "../api";
+import { regionalLiveVideo } from "../searchResultVideo";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
 import VideoCard from "../components/VideoCard";
@@ -13,8 +14,19 @@ import EmptyArt from "../components/illustrations/EmptyArt";
 import { subscribeServerEvent } from "../serverEvents";
 import { loadLiveVideos } from "../liveActivity";
 
+const REGIONAL_REFRESH_MS = 3 * 60_000;
+
+function regionDisplayName(region: string | null, locale: string): string | null {
+  if (!region) return null;
+  try {
+    return new Intl.DisplayNames([locale], { type: "region" }).of(region) ?? region;
+  } catch {
+    return region;
+  }
+}
+
 export default function LivePage({ onPlay }: { onPlay: (v: Video) => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   useDocumentTitle(t("navLive"));
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +44,36 @@ export default function LivePage({ onPlay }: { onPlay: (v: Video) => void }) {
     load();
     return subscribeServerEvent("live", load);
   }, [load]);
+
+  // Popular streams in the viewer's region, outside the followed channels.
+  // `null` while the plugin check or first fetch is still pending.
+  const [regional, setRegional] = useState<RegionalLiveResponse | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    const empty: RegionalLiveResponse = { region: null, videos: [] };
+    const loadRegional = () => api.liveYouTube()
+      .then((r) => { if (!cancelled) setRegional(r); })
+      .catch(() => { if (!cancelled) setRegional((current) => current ?? empty); });
+    api.plugins()
+      .then(({ plugins }) => {
+        if (cancelled) return;
+        if (!plugins.find((plugin) => plugin.id === "live-discovery")?.enabled) {
+          setRegional({ ...empty, disabled: true });
+          return;
+        }
+        loadRegional();
+        timer = window.setInterval(loadRegional, REGIONAL_REFRESH_MS);
+      })
+      .catch(() => { if (!cancelled) setRegional(empty); });
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+  const regionalVideos = regional?.videos ?? [];
+  const regionalLoading = regional === null;
+  const regionName = regionDisplayName(regional?.region ?? null, locale);
 
   const live = videos.filter((v) => v.live_status === "live");
   const upcoming = videos.filter((v) => v.live_status !== "live");
@@ -52,7 +94,9 @@ export default function LivePage({ onPlay }: { onPlay: (v: Video) => void }) {
       {loading && videos.length === 0 ? (
         <VideoGridSkeleton />
       ) : videos.length === 0 ? (
-        <EmptyState art={<EmptyArt scene="offAir" />} title={t("liveEmpty")} description={t("liveEmptyHint")} />
+        !regionalLoading && regionalVideos.length === 0 && (
+          <EmptyState art={<EmptyArt scene="offAir" />} title={t("liveEmpty")} description={t("liveEmptyHint")} />
+        )
       ) : (
         <>
           {individualLive.length > 0 && (
@@ -97,6 +141,31 @@ export default function LivePage({ onPlay }: { onPlay: (v: Video) => void }) {
             </>
           )}
         </>
+      )}
+      {(regionalLoading || regionalVideos.length > 0) && !(loading && videos.length === 0) && (
+        <section aria-busy={regionalLoading}>
+          <SectionHeader
+            title={regionName ? t("liveYouTubeRegionTitle", { region: regionName }) : t("liveYouTubeTitle")}
+            variant="uppercase"
+            className={videos.length > 0 ? "live-youtube-header" : undefined}
+          />
+          {regionalLoading ? <VideoGridSkeleton count={4} /> : (
+            <div className="video-grid">
+              {regionalVideos.map((live) => (
+                <VideoCard
+                  key={live.videoId}
+                  video={regionalLiveVideo(live)}
+                  onPlay={onPlay}
+                  onChanged={() => {}}
+                  allowReject={false}
+                  allowMarkWatched={false}
+                  processing={false}
+                  liveViewers={live.viewers}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

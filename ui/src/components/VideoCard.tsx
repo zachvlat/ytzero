@@ -147,6 +147,7 @@ export function VideoCard({
   entering = false,
   showFoundTime = false,
   processing = video.published_at == null || video.published_at === "",
+  liveViewers,
   actionPreview,
 }: {
   video: Video;
@@ -179,6 +180,8 @@ export function VideoCard({
   showFoundTime?: boolean;
   /** Metadata is still being enriched; blur the thumbnail and show progress. */
   processing?: boolean;
+  /** Concurrent viewers of a live stream; shown as "N watching" in place of the upload time. */
+  liveViewers?: number | null;
   /** Settings-only mode: preserve the real card markup while replacing mutations with configurable drag handles. */
   actionPreview?: {
     config: VideoCardActionConfig;
@@ -209,7 +212,10 @@ export function VideoCard({
   const [loadedThumbnailSrc, setLoadedThumbnailSrc] = useState<string | null>(null);
   const [previewActive, setPreviewActive] = useState(false);
   const canDownloadLocally = video.live_status !== "live" && video.live_status !== "upcoming";
-  const publishedTime = formatTimeAgo(video.published_at, language);
+  // On a live stream, the current audience replaces the (meaningless) upload age.
+  const publishedTime = liveViewers != null
+    ? t("liveWatchingCount", { count: liveViewers.toLocaleString(locale) })
+    : formatTimeAgo(video.published_at, language);
   const foundTime = formatTimeAgo(video.found_at ? `${video.found_at.replace(" ", "T")}Z` : null, language);
   const cardRef = useRef<HTMLDivElement>(null);
   const lastProximityRef = useRef(0);

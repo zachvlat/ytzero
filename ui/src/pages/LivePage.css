@@ -53,4 +53,5 @@
   font-weight: 700;
   letter-spacing: 0.35px;
 }
-.live-upcoming-header { margin-top: 32px; }
+.live-upcoming-header,
+.live-youtube-header { margin-top: 32px; }
