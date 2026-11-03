@@ -1,7 +1,7 @@
 import { database } from "./database";
-import { searchYouTube, type SearchResult } from "./youtube";
+import { fetchVideoInfo, searchYouTube, type SearchResult } from "./youtube";
 import { validYouTubeVideoId } from "./youtubeComments";
-import { buildWatchRelatedQuery, filterWatchRelatedResults } from "./watchRelatedQuery";
+import { buildWatchRelatedQueries, filterWatchRelatedResults, interleaveWatchRelatedResults } from "./watchRelatedQuery";
 
 interface WatchRelatedSeed {
   videoId: string;
@@ -21,6 +21,19 @@ async function loadSeed(videoId: string): Promise<WatchRelatedSeed | null> {
     JOIN channels c ON c.channel_id = v.channel_id
     WHERE v.video_id = ?
   `).get(videoId) as WatchRelatedSeed | null;
+}
+
+/**
+ * The creator's YouTube tags are the best topic signal but are not stored
+ * locally, so read them from the (cached) player response. Missing tags only
+ * mean the title keywords are used instead.
+ */
+async function loadSeedTags(uid: number, videoId: string): Promise<string[]> {
+  try {
+    return (await fetchVideoInfo(videoId, { userId: uid })).keywords ?? [];
+  } catch {
+    return [];
+  }
 }
 
 function placeholders(values: readonly string[]): string {
@@ -48,7 +61,8 @@ async function loadExcludedIds(uid: number, videoIds: readonly string[], channel
 
 /**
  * Search YouTube for watch-page recommendations outside the local library and
- * the profile's subscriptions. Results are not persisted; opening one follows
+ * the profile's subscriptions. Up to three topic searches (creator tags, then
+ * title keywords) run in parallel and their results are interleaved. Results are not persisted; opening one follows
  * the normal external-video import path.
  */
 export async function searchWatchRelated(uid: number, videoId: string): Promise<SearchResult[]> {
@@ -56,16 +70,26 @@ export async function searchWatchRelated(uid: number, videoId: string): Promise<
   const seed = await loadSeed(videoId);
   if (!seed) return [];
 
-  const query = buildWatchRelatedQuery(seed.title, seed.channelTitle);
-  if (!query) return [];
-  const search = await searchYouTube(query, uid);
-  if (search.results.length === 0) return [];
+  const queries = buildWatchRelatedQueries({
+    title: seed.title,
+    channelTitle: seed.channelTitle,
+    tags: await loadSeedTags(uid, seed.videoId),
+  });
+  if (queries.length === 0) return [];
+  const searches = await Promise.allSettled(queries.map((query) => searchYouTube(query, uid)));
+  const succeeded = searches.flatMap((search) => search.status === "fulfilled" ? [search.value.results] : []);
+  if (succeeded.length === 0) {
+    const failure = searches.find((search) => search.status === "rejected");
+    throw failure?.status === "rejected" ? failure.reason : new Error("YouTube search failed");
+  }
+  const results = interleaveWatchRelatedResults(succeeded);
+  if (results.length === 0) return [];
 
-  const candidateVideoIds = [...new Set(search.results.map((result) => result.videoId).filter(Boolean))];
-  const candidateChannelIds = [...new Set(search.results.map((result) => result.channelId).filter(Boolean))];
+  const candidateVideoIds = [...new Set(results.map((result) => result.videoId).filter(Boolean))];
+  const candidateChannelIds = [...new Set(results.map((result) => result.channelId).filter(Boolean))];
   const excluded = await loadExcludedIds(uid, candidateVideoIds, candidateChannelIds);
 
-  return filterWatchRelatedResults(search.results, {
+  return filterWatchRelatedResults(results, {
     currentVideoId: seed.videoId,
     currentChannelId: seed.channelId,
     ...excluded,

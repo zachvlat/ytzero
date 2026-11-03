@@ -957,6 +957,8 @@ export interface VideoInfo {
   publishedAt: string | null;
   duration: string | null;
   liveStatus: "none" | "live" | "upcoming" | "was_live";
+  /** Creator-supplied YouTube tags. Not persisted; used as a topic signal. */
+  keywords?: string[];
 }
 
 export interface VideoCreatorInfo {
@@ -1077,6 +1079,9 @@ function videoInfoFromPlayerResponse(videoId: string, pr: any): VideoInfo {
     publishedAt: mf?.publishDate ?? null,
     duration,
     liveStatus,
+    keywords: Array.isArray(vd.keywords)
+      ? vd.keywords.filter((keyword: unknown): keyword is string => typeof keyword === "string").map(decodeHtmlEntities)
+      : [],
   };
 }
 

@@ -116,6 +116,7 @@ export function parseYtdlpVideoInfo(videoId: string, serialized: string): VideoI
     publishedAt: ytdlpDate(raw.upload_date) ?? ytdlpDate(raw.release_date),
     duration: ytdlpDuration(raw),
     liveStatus: ytdlpLiveStatus(raw),
+    keywords: Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === "string") : [],
   };
 }
 

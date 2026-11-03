@@ -203,7 +203,7 @@ export const PLUGINS: PluginManifest[] = [
     id: "watch-search",
     name: "YouTube Watch Search",
     version: "0.1.0",
-    description: "Adds a From YouTube list to the watch page, seeded by the current video title and channel.",
+    description: "Adds a From YouTube list to the watch page, based on the current video's tags and title keywords.",
     icon: "Search",
     permissions: ["read:library", "search:youtube"],
   },
@@ -241,12 +241,12 @@ export const PLUGIN_TEXT: Record<string, { name: LocalizedText; description: Loc
   "watch-search": {
     name: { en: "YouTube Watch Search", pl: "Wyszukiwanie w YouTube", de: "YouTube-Suche" },
     description: {
-      en: "Adds a From YouTube list to the watch page, seeded by the current video title and channel.",
-      pl: "Dodaje na stronie oglądania listę „Z YouTube” opartą na tytule i kanale bieżącego filmu.",
-      de: "Fügt der Wiedergabeseite eine Liste „Von YouTube“ hinzu, basierend auf Titel und Kanal des aktuellen Videos.",
+      en: "Adds a From YouTube list to the watch page, based on the current video's tags and title keywords.",
+      pl: "Dodaje na stronie oglądania listę „Z YouTube” opartą na tagach i słowach kluczowych z tytułu bieżącego filmu.",
+      de: "Fügt der Wiedergabeseite eine Liste „Von YouTube“ hinzu, basierend auf den Tags und Titel-Stichwörtern des aktuellen Videos.",
     },
     permissions: {
-      "read:library": { en: "reads the current video title and channel", pl: "czyta tytuł i kanał bieżącego filmu", de: "liest Titel und Kanal des aktuellen Videos" },
+      "read:library": { en: "reads the current video's title, channel and tags", pl: "czyta tytuł, kanał i tagi bieżącego filmu", de: "liest Titel, Kanal und Tags des aktuellen Videos" },
       "search:youtube": { en: "searches YouTube for related videos", pl: "szuka powiązanych filmów w YouTube", de: "sucht auf YouTube nach ähnlichen Videos" },
     },
   },

@@ -65,6 +65,7 @@ describe("metadata cookie fallback", () => {
       upload_date: "20260908",
       duration: 3723,
       live_status: "was_live",
+      tags: ["linux", 42, "kde"],
     }))).toEqual({
       videoId: "actual-id",
       title: "Title",
@@ -76,6 +77,7 @@ describe("metadata cookie fallback", () => {
       publishedAt: "2026-09-08",
       duration: "62:03",
       liveStatus: "was_live",
+      keywords: ["linux", "kde"],
     });
   });
 
