@@ -116,4 +116,13 @@ describe("adaptive feed refresh", () => {
     ], { ...options, batchSize: 2 });
     expect(result.map((row) => row.channelId)).toEqual(["a", "b"]);
   });
+
+  test("with spare budget, quiet channels are checked once per rotation but failures still back off", () => {
+    const weekly = candidate("weekly", { publishedAt: dailyDates([3, 10, 17, 24]) });
+    expect(targetRefreshIntervalMs(weekly, options)).toBeGreaterThan(6 * HOUR);
+    expect(targetRefreshIntervalMs(weekly, { ...options, rotationIntervalMs: 5 * 60_000 })).toBe(10 * 60_000);
+    expect(targetRefreshIntervalMs(weekly, { ...options, rotationIntervalMs: 2 * HOUR })).toBe(2 * HOUR);
+    const failing = candidate("failing", { publishedAt: dailyDates([3, 10, 17, 24]), consecutiveFailures: 5 });
+    expect(targetRefreshIntervalMs(failing, { ...options, rotationIntervalMs: 5 * 60_000 })).toBe(320 * 60_000);
+  });
 });

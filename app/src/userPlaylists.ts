@@ -1,4 +1,5 @@
 import { database } from "./database";
+import { ruleMatches } from "./autotags";
 import { syncUserPlaylistOfflinePolicy } from "./downloader";
 
 export interface UserPlaylistRule {
@@ -14,22 +15,6 @@ interface VideoForRules {
   video_id: string;
   title: string;
   description: string;
-}
-
-function ruleMatches(rule: UserPlaylistRule, title: string, description: string): boolean {
-  const haystacks: string[] = [];
-  if (rule.field === "title" || rule.field === "both") haystacks.push(title);
-  if (rule.field === "description" || rule.field === "both") haystacks.push(description);
-  if (rule.match_type === "regex") {
-    try {
-      const re = new RegExp(rule.pattern, "i");
-      return haystacks.some((h) => re.test(h));
-    } catch {
-      return false;
-    }
-  }
-  const needle = rule.pattern.toLowerCase();
-  return haystacks.some((h) => h.toLowerCase().includes(needle));
 }
 
 const insertPlaylistVideo = database.prepare(`
@@ -55,12 +40,6 @@ export async function applyPlaylistRulesToVideo(videoId: string, syncOffline = t
     if (playlist) await syncUserPlaylistOfflinePolicy(playlist.user_id, playlistId);
   }
   return count;
-}
-
-export async function applyPlaylistRulesToVideos(videoIds: string[]): Promise<void> {
-  for (const videoId of videoIds) await applyPlaylistRulesToVideo(videoId, false);
-  const playlists = await database.prepare("SELECT id, user_id FROM user_playlists WHERE offline_policy!='none'").all() as Array<{ id: number; user_id: number }>;
-  for (const playlist of playlists) await syncUserPlaylistOfflinePolicy(playlist.user_id, playlist.id);
 }
 
 export async function applyPlaylistRuleToAllVideos(ruleId: number): Promise<number> {

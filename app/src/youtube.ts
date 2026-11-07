@@ -7,7 +7,7 @@ import { DeletedVideoError, fetchVideoOEmbedAvailability, isDeletedVideoError, i
 import { inferIsShortFromMetadata } from "./shortClassification";
 import { resolveYouTubeLanguage, youtubeRequestHeaders, youtubeRssHeaders, type ResolvedYouTubeLanguage } from "./youtubeRequestLanguage";
 import { MetadataCookieFallbackBudget, retryVideoInfoWithCookies } from "./videoMetadataFallback";
-import { AsyncTtlCache } from "./asyncTtlCache";
+import { AsyncTtlCache, setBounded } from "./asyncTtlCache";
 import { readYouTubeBodyWithCookies, readYouTubeResponseWithCookies, refreshYouTubeResponseCookies } from "./youtubeCookieJar";
 export { DeletedVideoError, fetchVideoOEmbedAvailability, isDeletedVideoError, isPrivateVideoError, PrivateVideoError, videoOEmbedAvailabilityFromStatus } from "./youtubeVideoAvailability";
 const _require = createRequire(import.meta.url);
@@ -336,7 +336,7 @@ export async function fetchChannelAbout(channelId: string): Promise<ChannelAbout
     viewCount: "",
     handle,
   };
-  aboutCache.set(channelId, { at: Date.now(), data: about });
+  setBounded(aboutCache, channelId, { at: Date.now(), data: about });
   return about;
 }
 
@@ -418,14 +418,6 @@ function collectChannelPlaylists(data: any, out: PlaylistInfo[], seen: Set<strin
   }
 }
 
-/** Parse the playlists present in a channel page's initial payload. Exported
- * separately so YouTube layout changes can be covered with fixture tests. */
-export function parseChannelPlaylistsHtml(html: string): PlaylistInfo[] {
-  const out: PlaylistInfo[] = [];
-  collectChannelPlaylists(extractInitialData(html), out, new Set<string>());
-  return out;
-}
-
 export function playlistContinuationToken(data: any): string | null {
   for (const renderer of deepCollect(data, "continuationItemRenderer")) {
     const token = renderer?.continuationEndpoint?.continuationCommand?.token;
@@ -498,7 +490,7 @@ export async function fetchChannelPlaylists(channelId: string, force = false, us
     }
   }
   if (token) complete = false;
-  playlistCache.set(cacheKey, { at: Date.now(), data: out, complete });
+  setBounded(playlistCache, cacheKey, { at: Date.now(), data: out, complete });
   return out;
 }
 
@@ -584,7 +576,7 @@ export async function fetchPlaylistFeed(playlistId: string, force = false, userI
     channelTitle: decodeHtmlEntities(String(feed.author?.name ?? feed.title ?? "")),
     videos,
   };
-  playlistFeedCache.set(cacheKey, { at: Date.now(), data });
+  setBounded(playlistFeedCache, cacheKey, { at: Date.now(), data });
   return data;
 }
 
@@ -681,10 +673,10 @@ export async function fetchPlaylistSnapshot(playlistId: string, force = false, u
       duration: "",
       index,
     }));
-    playlistVideosCache.set(cacheKey, { at: Date.now(), videos: fallback, complete: false });
+    setBounded(playlistVideosCache, cacheKey, { at: Date.now(), videos: fallback, complete: false });
     return { videos: fallback, complete: false };
   }
-  playlistVideosCache.set(cacheKey, { at: Date.now(), videos, complete });
+  setBounded(playlistVideosCache, cacheKey, { at: Date.now(), videos, complete });
   return { videos, complete };
 }
 
@@ -1224,7 +1216,7 @@ export async function fetchVideoChapters(videoId: string, userId?: number): Prom
     out.push({ title, start });
   }
   out.sort((a, b) => a.start - b.start);
-  chaptersCache.set(cacheKey, { at: Date.now(), data: out });
+  setBounded(chaptersCache, cacheKey, { at: Date.now(), data: out });
   return out;
 }
 

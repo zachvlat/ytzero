@@ -5,7 +5,7 @@ import { SettingsDisplayView } from "../components/settings/SettingsDisplayView"
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, ArchiveRestore, ArrowRight, BellRing, Check, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, ExternalLink, Eye, EyeOff, FileText, Filter, FolderUp, GripVertical, Info, LoaderCircle, Pencil, Play, Plug, Plus, Radio, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Tv, UserMinus, UserPlus, UsersRound, Wrench, X, Zap } from "lucide-react";
-import { api, type AppChangelog, type AppLogs, type AppLogStreamEvent, type AppVersion, type AuthMethod, type Channel, type ChildLockStatus, type FilterRule, type MembersOnlyVisibility, type PluginManifest, type PluginSettingsResponse, type Profile, type ProfilePermissionArea, type ProfilePermissions, type Rule, type Tag, type UpdateCheck, type UserPlaylist, type UserPlaylistRule, type Video, SB_CATEGORIES } from "../api";
+import { api, type AppChangelog, type AppLogs, type AppLogStreamEvent, type AppVersion, type AuthMethod, type Channel, type ChildLockStatus, type FilterRule, type MembersOnlyVisibility, type PluginManifest, type PluginSettingsResponse, type Profile, type ProfilePermissions, type Rule, type Tag, type UpdateCheck, type UserPlaylist, type UserPlaylistRule, type Video, SB_CATEGORIES } from "../api";
 import { NAV_ITEMS, normalizeNav, parseNavConfig, type NavConfigEntry } from "../nav";
 import { img } from "../img";
 import TagChip from "../components/TagChip";
@@ -42,48 +42,7 @@ const TubeArchivistSettings = lazy(() => import("../components/settings/TubeArch
   .then((module) => ({ default: module.TubeArchivistSettings })));
 const NotificationSettings = lazy(() => import("../components/settings/NotificationSettings"));
 type Tab = "channels" | "tags" | "playlists" | "display" | "notifications" | "plugins" | "sharing" | "advanced" | "profiles" | "auth" | "cluster";
-const TIME_ZONES = (() => {
-  const intl = Intl as typeof Intl & { supportedValuesOf?: (key: "timeZone") => string[] };
-  const supported = intl.supportedValuesOf?.("timeZone") ?? [
-    "Europe/London", "Europe/Warsaw", "America/New_York", "America/Chicago",
-    "America/Denver", "America/Los_Angeles", "Asia/Tokyo", "Australia/Sydney",
-  ];
-  return [...new Set(["UTC", ...supported])];
-})();
-// Areas unavailable to a profile are omitted entirely, not shown as dead ends.
-const SETTINGS_AREAS: { id: Tab; primaryOnly?: boolean }[] = [
-  { id: "channels" },
-  { id: "tags" },
-  { id: "playlists" },
-  { id: "display" },
-  { id: "notifications" },
-  { id: "plugins" },
-  { id: "sharing" },
-  { id: "advanced", primaryOnly: true },
-  { id: "profiles" },
-  { id: "auth", primaryOnly: true },
-  { id: "cluster", primaryOnly: true },
-];
-const DISPLAY_PERMISSION_AREAS: ProfilePermissionArea[] = ["appearance", "feed", "navigation", "playback"];
 const GITHUB_RELEASES_URL = "https://github.com/Pelski/ytzero/releases";
-const PIN_PROTECTED_PERMISSION_AREAS = new Set<ProfilePermissionArea>(["channels", "followed_playlists", "imports", ...DISPLAY_PERMISSION_AREAS, "plugins", "profiles", "public_sharing"]);
-function permissionAreaForTab(tab: Tab): ProfilePermissionArea | null {
-  if (tab === "sharing") return "public_sharing";
-  if (tab === "channels" || tab === "tags" || tab === "playlists" || tab === "plugins" || tab === "profiles") return tab;
-  if (tab === "advanced") return null;
-  return null;
-}
-// Feed age limit: "off" lives in the unit select so the whole control stays two
-// dropdowns (the value select is disabled while the limit is off).
-type FeedMaxAgeUnit = "days" | "weeks" | "months" | "years" | "off";
-const FEED_MAX_AGE_UNITS: Exclude<FeedMaxAgeUnit, "off">[] = ["days", "weeks", "months", "years"];
-const FEED_MAX_AGE_VALUES = Array.from({ length: 30 }, (_, i) => String(i + 1));
-const LOG_LINE_LIMIT = 300;
-const PLUGIN_SETTING_SAVE_DEBOUNCE_MS = 300;
-
-function isFeedMaxAgeUnit(value: unknown): value is FeedMaxAgeUnit {
-  return typeof value === "string" && (FEED_MAX_AGE_UNITS as string[]).includes(value);
-}
 
 export default function SettingsPage({ showToast }: { showToast: (m: string) => void }) {
   const [pluginSearchTarget, setPluginSearchTarget] = useState<string | null>(null);

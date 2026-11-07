@@ -27,7 +27,7 @@ import { useWatchTogetherPlayback } from "./useWatchTogetherPlayback";
 import { useYouTubeKeyboardShortcuts, type WatchShortcutKind } from "./useYouTubeKeyboardShortcuts";
 import { useUpNextQueue } from "./useUpNextQueue";
 import { usePlaylistDownloadPrefetch } from "./usePlaylistDownloadPrefetch";
-import { normalizePlaylistSort, playlistSortSearch } from "../playlistSort";
+import { normalizePlaylistSort, playlistSortSearch } from "../../../shared/playlistSort";
 import type { WatchPlayerHandle } from "../playerHandle";
 import { canUseWatchAudioMode } from "./watchAudioMode";
 import { useWatchPlaybackPosition } from "./useWatchPlaybackPosition";

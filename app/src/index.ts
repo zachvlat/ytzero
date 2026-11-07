@@ -20,6 +20,7 @@ import { reloadPluginEnabledCache } from "./plugins";
 import { startClusterHeartbeat } from "./clusterRuntime";
 import { createPublicShareRouter } from "./routes/publicShareRoutes";
 import { startLocalDiscovery } from "./localDiscovery";
+import { waitForPostgresWorkerLock } from "./postgresLocks";
 
 if (environmentAuthMethod() && !environmentAuthPasswordConfigured()) {
   log.error("auth.environment_password_missing", {
@@ -107,11 +108,21 @@ await migrateLegacyProfileAvatars()
 const mode = deploymentMode(databaseConfig.engine);
 await startClusterHeartbeat();
 await startAppEventRelay({ cleanup: mode.backgroundTasks });
-if (mode.backgroundTasks) {
+let workerActive = false;
+async function startBackgroundTasks() {
+  workerActive = true;
   startScheduler();
   await startDownloader();
   scheduleTubeArchivistSync(true);
   void flushTubeArchivistWatched();
+}
+if (mode.backgroundTasks && databaseConfig.engine === "postgres") {
+  // Only one replica runs the background worker, even if several were started with background tasks on.
+  void waitForPostgresWorkerLock(databaseConfig.url)
+    .then(() => { log.info("worker.lock_acquired"); return startBackgroundTasks(); })
+    .catch((error) => log.error("worker.start_failed", { error: error instanceof Error ? error.message : String(error) }));
+} else if (mode.backgroundTasks) {
+  await startBackgroundTasks();
 } else {
   log.info("scheduler.disabled", { variable: "YTZERO_BACKGROUND_TASKS", database: databaseConfig.engine });
 }
@@ -122,7 +133,7 @@ if (databaseConfig.engine === "postgres") {
     refreshingRuntimeCaches = true;
     Promise.all([reloadSettingCache(), reloadPluginEnabledCache()])
       .then(([settingsChanged, changedPlugins]) => {
-        if (mode.backgroundTasks && (settingsChanged || changedPlugins.includes("tubearchivist"))) scheduleTubeArchivistSync();
+        if (workerActive && (settingsChanged || changedPlugins.includes("tubearchivist"))) scheduleTubeArchivistSync();
       })
       .catch((error) => log.warn("cluster.cache_refresh_failed", { error: error instanceof Error ? error.message : String(error) }))
       .finally(() => { refreshingRuntimeCaches = false; });

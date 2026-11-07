@@ -1374,6 +1374,10 @@ export const en = {
     recommendationsLoadErrorDescription: "The recommendation data is temporarily unavailable. Try refreshing the view.",
     recommendationsEmptyTitle: "Your taste needs a little more signal",
     recommendationsEmptyDescription: "Watch a few regular videos or add useful tags and this view will start finding patterns.",
+    recommendationsKeywordsAdd: "Add keyword",
+    recommendationsKeywordsRemove: "Remove keyword",
+    recommendationsKeywordsPlaceholder: "Add a keyword",
+    recommendationsKeywordsSaveFailed: "Could not save your keywords. Try again.",
     // Interpolated messages (use {token} placeholders, filled via t(key, params))
     error: "Error",
     confirmDelete: 'Delete "{name}"?',

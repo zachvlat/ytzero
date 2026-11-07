@@ -12,7 +12,7 @@ import { EmptyState, IconButton, LocalToast, Menu, MenuItem, MenuSeparator, Popo
 import Popconfirm from "../components/Popconfirm";
 import ChannelPlaylistHero from "../components/ChannelPlaylistHero";
 import PlaylistPlaybackActions from "../components/PlaylistPlaybackActions";
-import { normalizePlaylistSort, playlistSortSearch, type PlaylistSort } from "../playlistSort";
+import { normalizePlaylistSort, playlistSortSearch, type PlaylistSort } from "../../../shared/playlistSort";
 import { videosInPlaylistOrder } from "../playlistPlayback";
 import NotificationSourceMenu from "../components/NotificationSourceMenu";
 import type { NotificationSourceMode } from "../components/NotificationSourceSelect";

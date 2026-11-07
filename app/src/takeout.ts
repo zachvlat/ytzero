@@ -6,6 +6,8 @@ import { configuredTimeZone, zonedDateTimeToUtc } from "./timeZone";
 // enrichment fetches its real metadata (title/channel/thumbnail). Kept external
 // so imported videos never leak into any profile's feed.
 export const IMPORTED_CHANNEL_ID = "YTZERO_IMPORTED";
+// The upload limit only bounds compressed bytes; this bounds what a zip may expand to in memory.
+export const TAKEOUT_MAX_UNZIPPED_BYTES = 256 << 20;
 
 export interface TakeoutPlaylist {
   name: string;
@@ -364,7 +366,7 @@ export function isZip(bytes: Uint8Array): boolean {
 }
 
 /** Extract only the entries whose name passes `wanted` from a ZIP archive. */
-export function unzipEntries(buffer: Uint8Array, wanted: (name: string) => boolean): ZipEntry[] {
+export function unzipEntries(buffer: Uint8Array, wanted: (name: string) => boolean, maxUnzippedBytes = TAKEOUT_MAX_UNZIPPED_BYTES): ZipEntry[] {
   const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   const eocd = findEndOfCentralDirectory(view);
   if (eocd < 0) throw new Error("not a valid ZIP archive");
@@ -386,7 +388,9 @@ export function unzipEntries(buffer: Uint8Array, wanted: (name: string) => boole
 
     if (!name.endsWith("/") && wanted(name)) {
       if (compressedSize === 0xffffffff || localOffset === 0xffffffff) throw new Error("ZIP64 archives are not supported");
-      entries.push({ name, bytes: readLocalEntry(buffer, view, localOffset, method, compressedSize) });
+      const bytes = readLocalEntry(buffer, view, localOffset, method, compressedSize, maxUnzippedBytes);
+      maxUnzippedBytes -= bytes.length;
+      entries.push({ name, bytes });
     }
   }
   return entries;
@@ -401,13 +405,23 @@ function findEndOfCentralDirectory(view: DataView): number {
   return -1;
 }
 
-function readLocalEntry(buffer: Uint8Array, view: DataView, offset: number, method: number, compressedSize: number): Uint8Array {
+function readLocalEntry(buffer: Uint8Array, view: DataView, offset: number, method: number, compressedSize: number, maxBytes: number): Uint8Array {
   if (view.getUint32(offset, true) !== 0x04034b50) throw new Error("corrupt ZIP: bad local header");
   const nameLen = view.getUint16(offset + 26, true);
   const extraLen = view.getUint16(offset + 28, true);
   const dataStart = offset + 30 + nameLen + extraLen;
   const data = buffer.subarray(dataStart, dataStart + compressedSize);
-  if (method === 0) return data;
-  if (method === 8) return inflateRawSync(data);
+  if (method === 0) {
+    if (data.length > maxBytes) throw new Error("ZIP archive expands beyond the import size limit");
+    return data;
+  }
+  if (method === 8) {
+    try {
+      return inflateRawSync(data, { maxOutputLength: Math.max(1, maxBytes) });
+    } catch (error) {
+      if (error instanceof RangeError || (error as { code?: string }).code === "ERR_BUFFER_TOO_LARGE") throw new Error("ZIP archive expands beyond the import size limit");
+      throw error;
+    }
+  }
   throw new Error(`unsupported ZIP compression method ${method}`);
 }

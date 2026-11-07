@@ -1318,6 +1318,10 @@ export const hu: Locale = {
     recommendationsLoadErrorDescription: "Az ajánlási adatok átmenetileg nem elérhetők. Próbáld frissíteni a nézetet.",
     recommendationsEmptyTitle: "Az ízlésednek egy kis több jelre van szüksége",
     recommendationsEmptyDescription: "Nézz meg néhány rendes videót, vagy adj hozzá hasznos címkéket, és ez a nézet elkezdi felismerni a mintákat.",
+    recommendationsKeywordsAdd: "Hozzáadás",
+    recommendationsKeywordsRemove: "Eltávolítás",
+    recommendationsKeywordsPlaceholder: "Kulcszó hozzáadása",
+    recommendationsKeywordsSaveFailed: "Nem sikerült menteni a kulcsszavakat. Próbálja újra.",
     // Interpolated messages (use {token} placeholders, filled via t(key, params))
     error: "Hiba",
     confirmDelete: 'Törlöd: „{name}”?',

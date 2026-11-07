@@ -52,8 +52,6 @@ async function loadLocale(language: Language): Promise<Locale> {
 /** BCP 47 tags used for Intl date/number formatting. Single source of truth. */
 export { LOCALE_TAGS } from "../../../shared/uiLanguages";
 
-export type SettingsWithLanguage = AppSettings & { language: Language };
-
 /** Native (endonym) name of a language, e.g. "Deutsch", "polski" — for the language picker. */
 export function languageName(code: Language): string {
   return UI_LANGUAGES[code].nativeName;

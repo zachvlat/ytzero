@@ -1,10 +1,7 @@
 import { syncNextChannelPosts } from "./channelPostsStore";
+import { positiveNumber } from "./adaptiveRefreshConfig";
 import { log } from "./logger";
 
-function positiveNumber(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 export function startChannelPostsScheduler(): void {
   const intervalMin = positiveNumber(process.env.POSTS_SYNC_INTERVAL_MINUTES, 10);

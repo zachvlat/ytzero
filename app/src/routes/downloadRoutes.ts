@@ -9,7 +9,7 @@ import { DOWNLOADS_ADMIN_SETTING_KEYS, dlSettings, downloadCookiesConfigured, do
 import { activeDownloadProgress, cancelAllPendingDownloads, downloadStats, downloadStatusSummary, enqueueDownload, ensureMobilePlayback, getDirectVideoResponse, getDownload, getHlsPlaylist, getHlsResource, getHlsSegment, hasHlsSession, invalidateAudioSources, invalidateDirectVideoSources, isSegmentName, listDownloads, listSubtitleFiles, liveStreamEnabled, prioritizeDownload, removeDownload, setDownloadPinned, srtToVtt, ytdlpJavascriptRuntimeStatus, ytdlpStatus } from "../downloader";
 import { createDownloadRule, deleteDownloadRule, DownloadRuleValidationError, listDownloadRules, previewDownloadRule, updateDownloadRule, type DownloadRuleInput } from "../downloadRules";
 import { availableSubtitlesForVideo, normalizeSubtitleLanguage, subtitleStreamForVideo } from "../subtitleAvailability";
-import { subtitleLanguageLabel } from "../subtitleLanguages";
+import { subtitleLanguageLabel } from "../../../shared/subtitleLanguages";
 import { fetchSubtitleUpstream, proxySubtitleResponse } from "../subtitleUpstream";
 import { configuredTimeZone } from "../timeZone";
 import { tubeArchivistResource, tubeArchivistSubtitleList, tubeArchivistSubtitleResponse } from "../tubeArchivist";
@@ -266,6 +266,7 @@ api.get("/videos/:id/download", async (c) => {
 
 api.delete("/videos/:id/download", async (c) => {
   const uid = currentUserId(c);
+  if (!validYouTubeVideoId(c.req.param("id"))) return c.json({ error: "not found" }, 404);
   if (await isChildUser(uid)) return c.json({ error: "not allowed" }, 403);
   const requestedProfile = Number(c.req.query("profile_id"));
   const ownerId = Number.isInteger(requestedProfile) && requestedProfile > 0 && isAdmin(c) ? requestedProfile : uid;

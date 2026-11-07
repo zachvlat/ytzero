@@ -21,6 +21,7 @@ import type {
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import * as oidc from "openid-client";
+import { getConnInfo } from "hono/bun";
 import { getSetting } from "./db";
 import { database } from "./database";
 import { assignDefaultPermissionGroup } from "./accessControl";
@@ -142,10 +143,6 @@ export async function validateSession(
 
 export async function destroySession(token: string | undefined) {
   if (token) await database.prepare("DELETE FROM auth_sessions WHERE token = ?").run(token);
-}
-
-export async function cleanupSessions() {
-  await database.prepare("DELETE FROM auth_sessions WHERE expires_at <= datetime('now')").run();
 }
 
 export function authSessionCookie(token: string) {
@@ -297,6 +294,11 @@ export async function passkeyLoginVerify(
     .prepare("SELECT * FROM webauthn_credentials WHERE credential_id = ?")
     .get<CredRow>(response.id);
   if (!cred) throw new Error("unknown credential");
+  // Passkeys only work while passkey methods are active, and a shared (ownerless) key must not open whole-account access under 'per_profile'.
+  const method = authMethod();
+  if ((method !== "shared" && method !== "per_profile") || (method === "per_profile" && cred.user_id === null)) {
+    throw new Error("credential not valid for the current sign-in method");
+  }
   const verification = await verifyAuthenticationResponse({
     response,
     expectedChallenge: flow.value,
@@ -447,7 +449,22 @@ export async function oidcCallback(
 
 // ---------- proxy header ----------
 
+// The proxy header is only believed from the proxy itself. Default: loopback and private
+// networks (Docker, LAN). YTZERO_TRUSTED_PROXIES="10.0.0.5,::1" narrows it to exact peer IPs.
+export function isTrustedProxyPeer(address: string | undefined, trusted = process.env.YTZERO_TRUSTED_PROXIES): boolean {
+  if (!address) return false;
+  const ip = address.replace(/^::ffff:/i, "");
+  const list = trusted?.split(",").map((entry) => entry.trim()).filter(Boolean);
+  if (list?.length) return list.includes(ip);
+  return /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip) || ip === "::1" || /^f[cd]/i.test(ip);
+}
+
+function requestPeerAddress(c: any): string | undefined {
+  try { return getConnInfo(c).remote.address; } catch { return undefined; }
+}
+
 export async function resolveProxyUser(c: any): Promise<number | null> {
+  if (!isTrustedProxyPeer(requestPeerAddress(c))) return null;
   const headerName = (getSetting("auth_proxy_header") || "Remote-User").toLowerCase();
   const value = c.req.header(headerName);
   if (!value) return null;

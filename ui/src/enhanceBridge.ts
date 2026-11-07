@@ -1,5 +1,5 @@
 import type { AppSettings } from "./api";
-import { SUBTITLE_LANGUAGES } from "./subtitleLanguages";
+import { SUBTITLE_LANGUAGES } from "../../shared/subtitleLanguages";
 
 export const ENHANCE_BRIDGE_VERSION = 1;
 export const ENHANCE_CONFIGURATION_ELEMENT_ID = "ytzero-enhance-configuration";

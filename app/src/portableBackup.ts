@@ -1,4 +1,4 @@
-import { normalizePlaylistSort } from "./playlistSort";
+import { normalizePlaylistSort } from "../../shared/playlistSort";
 import { database } from "./database";
 import { getSetting, GLOBAL_SETTING_KEYS, reloadSettingCache, SETTING_DEFAULTS, USER_SETTING_KEYS } from "./db";
 import { PLUGINS, PLUGIN_BACKUP_ADAPTERS, setPluginEnabled } from "./plugins";

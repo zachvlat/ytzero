@@ -53,3 +53,7 @@ export function sortUserPlaylistItems<T>(
   }
   return sortPlaylistItems(items, sort, (item) => fields(item));
 }
+
+export function playlistSortSearch(sort: PlaylistSort): string {
+  return `?sort=${encodeURIComponent(sort)}`;
+}

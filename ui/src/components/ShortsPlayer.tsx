@@ -6,24 +6,7 @@ import { api, type Video } from "../api";
 import { useI18n } from "../i18n";
 import { img } from "../img";
 import { isIncognitoMode } from "../incognitoMode";
-
-let ytApiReady: Promise<void> | null = null;
-function loadYouTubeApi(): Promise<void> {
-  if (!ytApiReady) {
-    ytApiReady = new Promise<void>((resolve) => {
-      const w = window as any;
-      if (w.YT?.Player) { resolve(); return; }
-      const prev = w.onYouTubeIframeAPIReady;
-      w.onYouTubeIframeAPIReady = () => { prev?.(); resolve(); };
-      if (!document.querySelector('script[src*="iframe_api"]')) {
-        const s = document.createElement("script");
-        s.src = "https://www.youtube.com/iframe_api";
-        document.head.appendChild(s);
-      }
-    });
-  }
-  return ytApiReady;
-}
+import { loadYouTubeApi } from "../pages/watchRuntime";
 
 const TRANS_MS = 360;
 const NUM_SLOTS = 3;

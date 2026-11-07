@@ -140,6 +140,8 @@ function filesForBase(base: string): string[] {
 }
 
 async function filesFor(videoId: string): Promise<string[]> {
+  // Ids arrive from URLs; a path-like id ("../db/x") must never become a filesystem path.
+  if (!/^[A-Za-z0-9_-]+$/.test(videoId)) return [];
   const files = new Set<string>(filesForBase(videoId)); // legacy flat {id}.* layout
   const base = await outputBaseFor(videoId);
   if (base && base !== videoId) for (const f of filesForBase(base)) files.add(f);
@@ -219,7 +221,7 @@ async function fetchSubtitleSidecars(userId: number, videoId: string, langs: str
     "--no-playlist",
     "--no-warnings",
     "--skip-download",
-    "-o", join(DOWNLOADS_DIR, `${base}.%(ext)s`),
+    "-o", join(DOWNLOADS_DIR, `${base.replaceAll("%", "%%")}.%(ext)s`), // a literal % in a title must not become a yt-dlp field
   ];
   if (options.manual) args.push("--write-subs");
   if (options.automatic) args.push("--write-auto-subs");
@@ -592,16 +594,6 @@ export async function getDownload(userId: number, videoId: string) {
     .get(userId, videoId) as { video_id: string; status: string; quality: string | null; path: string | null; size_bytes: number | null; error: string | null; pinned: number } | null;
 }
 
-/** Reset only the active profile's download ownership and preferences. Shared
- * files survive while another profile still owns them. */
-export async function resetDownloadsState(userId: number) {
-  const rows = await database.prepare("SELECT video_id FROM download_owners WHERE user_id=?").all(userId) as { video_id: string }[];
-  for (const { video_id } of rows) await removeDownload(userId, video_id);
-  await database.prepare("DELETE FROM download_rules WHERE user_id=?").run(userId);
-  await database.prepare("DELETE FROM download_settings WHERE user_id=?").run(userId);
-  publishAppEvent("downloads", { reset: true, userId });
-}
-
 // ---------- auto-enqueue policies ----------
 
 function parseDurationSeconds(duration: string | null): number | null {
@@ -842,35 +834,32 @@ function pruneAllEmptyDirs(dir: string, isRoot = true) {
 // ---------- the download itself ----------
 
 async function pickNext(): Promise<{ videoId: string; userId: number; settings: DlSettings } | null> {
-  const rows = await database.prepare(`
-    SELECT d.video_id, d.requested_by_user_id, d.requested_quality FROM downloads d
-    JOIN videos v ON v.video_id = d.video_id
-    WHERE d.status = 'queued' AND v.is_private = 0 AND v.is_unavailable = 0
-    ORDER BY d.priority DESC, CASE d.source WHEN 'manual' THEN 0 WHEN 'scheduled' THEN 1 ELSE 2 END, d.created_at ASC
-  `).all() as { video_id: string; requested_by_user_id: number | null; requested_quality: string | null }[];
-  const settingsByUser = new Map<number, DlSettings>();
-  for (const row of rows) {
-    const owners = await database.prepare(`
-      SELECT owner.user_id
-      FROM download_owners owner
-      JOIN download_settings enabled ON enabled.user_id=owner.user_id AND enabled.key='enabled' AND enabled.value='1'
-      WHERE owner.video_id=?
-      ORDER BY CASE WHEN owner.user_id=? THEN 0 ELSE 1 END, owner.created_at, owner.user_id
-    `).all(row.video_id, row.requested_by_user_id) as { user_id: number }[];
-    for (const owner of owners) {
-      let settings = settingsByUser.get(owner.user_id);
-      if (!settings) {
-        settings = await dlSettings(owner.user_id);
-        settingsByUser.set(owner.user_id, settings);
-      }
-      if (downloadScheduleAllowsNow(settings)) return {
-        videoId: row.video_id,
-        userId: owner.user_id,
-        settings: { ...settings, quality: resolveDownloadQuality(settings.quality, row.requested_quality) },
-      };
-    }
+  // Resolve which profiles may download right now (few), then pick the first queued row one of them owns in one query,
+  // instead of one owner query per queued row.
+  const enabledUsers = await database.prepare("SELECT user_id FROM download_settings WHERE key='enabled' AND value='1'").all() as { user_id: number }[];
+  const allowed = new Map<number, DlSettings>();
+  for (const { user_id } of enabledUsers) {
+    const settings = await dlSettings(user_id);
+    if (downloadScheduleAllowsNow(settings)) allowed.set(user_id, settings);
   }
-  return null;
+  if (allowed.size === 0) return null;
+  const userIds = [...allowed.keys()];
+  const row = await database.prepare(`
+    SELECT d.video_id, d.requested_quality, owner.user_id FROM downloads d
+    JOIN videos v ON v.video_id = d.video_id
+    JOIN download_owners owner ON owner.video_id = d.video_id AND owner.user_id IN (${userIds.map(() => "?").join(",")})
+    WHERE d.status = 'queued' AND v.is_private = 0 AND v.is_unavailable = 0
+    ORDER BY d.priority DESC, CASE d.source WHEN 'manual' THEN 0 WHEN 'scheduled' THEN 1 ELSE 2 END, d.created_at ASC,
+      CASE WHEN owner.user_id = d.requested_by_user_id THEN 0 ELSE 1 END, owner.created_at, owner.user_id
+    LIMIT 1
+  `).get(...userIds) as { video_id: string; requested_quality: string | null; user_id: number } | null;
+  if (!row) return null;
+  const settings = allowed.get(Number(row.user_id))!;
+  return {
+    videoId: row.video_id,
+    userId: Number(row.user_id),
+    settings: { ...settings, quality: resolveDownloadQuality(settings.quality, row.requested_quality) },
+  };
 }
 
 const PROGRESS_RE = /\[download\]\s+([\d.]+)%(?:\s+of\s+~?\s*([\d.]+)(K|M|G)iB)?(?:.*?at\s+(\S+))?/;
@@ -949,7 +938,7 @@ async function runDownload(userId: number, videoId: string, s: DlSettings) {
     "--concurrent-fragments", "4",
     "-f", format,
     "--merge-output-format", "mp4",
-    "-o", join(DOWNLOADS_DIR, `${base}.%(ext)s`),
+    "-o", join(DOWNLOADS_DIR, `${base.replaceAll("%", "%%")}.%(ext)s`), // a literal % in a title must not become a yt-dlp field
   ];
   if (s.write_thumbnail === 1) baseArgs.push("--write-thumbnail");
   if (s.embed_metadata === 1) baseArgs.push("--embed-metadata");

@@ -32,6 +32,13 @@ interface SettingsRouteAccess {
   verifyChildLockPin: (pin: string) => Promise<boolean>;
 }
 
+// 5 wrong PINs block unlocking for 5 minutes, so the 6-digit space can't be brute-forced.
+// shortcut: per-process counter; a cluster multiplies attempts by replica count, move to the DB if that matters.
+const UNLOCK_MAX_FAILURES = 5;
+const UNLOCK_BLOCK_MS = 5 * 60_000;
+let unlockFailures = 0;
+let unlockBlockedUntil = 0;
+
 export function registerSettingsRoutes(api: Api, access: SettingsRouteAccess): void {
   const {
     childLockStatus,
@@ -185,9 +192,15 @@ api.post("/child-lock/enable", async (c) => {
 api.post("/child-lock/unlock", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   if (!isChildLockEnabled()) return c.json({ child_lock: await childLockStatus(c) });
+  if (Date.now() < unlockBlockedUntil) return c.json({ error: "too many attempts" }, 429);
   if (!isSixDigitPin(body.pin) || !(await verifyChildLockPin(body.pin))) {
+    if (++unlockFailures >= UNLOCK_MAX_FAILURES) {
+      unlockFailures = 0;
+      unlockBlockedUntil = Date.now() + UNLOCK_BLOCK_MS;
+    }
     return c.json({ error: "invalid PIN" }, 401);
   }
+  unlockFailures = 0;
   await setChildLockSession(c);
   return c.json({ child_lock: await childLockStatus(c) });
 });

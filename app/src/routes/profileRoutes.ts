@@ -325,6 +325,8 @@ api.delete("/profiles/:id", async (c) => {
   for (const download of ownedDownloads) await removeDownload(id, download.video_id);
   removeDownloadCookies(id);
   invalidateAudioSources(id);
+  // Household (account) sessions only point at this profile; unpin them so the cascade below does not log them out.
+  await database.prepare("UPDATE auth_sessions SET user_id = NULL WHERE user_id = ? AND scope = 'account'").run(id);
   await database.prepare("DELETE FROM users WHERE id = ?").run(id); // cascades to all remaining per-user state
   removeStoredProfileAvatar(user.avatar);
   if (user.is_child) {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, LoaderCircle } from "lucide-react";
 import { api, type Channel, type ChannelManualStatus, type ChannelShortsFeedVisibility, type MembersOnlyVisibility } from "../../api";
 import { resolvePlaybackSpeeds } from "../../../../shared/playbackSpeeds";
-import { SUBTITLE_LANGUAGES } from "../../subtitleLanguages";
+import { SUBTITLE_LANGUAGES } from "../../../../shared/subtitleLanguages";
 import { useI18n } from "../../i18n";
 import ChannelRefreshScheduleDialog from "../ChannelRefreshScheduleDialog";
 import NotificationSourceSelect from "../NotificationSourceSelect";

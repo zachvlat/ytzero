@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { getCookie } from "hono/cookie";
 import { AUTH_SESSION_COOKIE, validateSession } from "./auth";
 import { database } from "./database";
 
@@ -42,6 +43,9 @@ export async function persistSessionProfile(
   const bearer = bearerSessionToken(context.req.header("authorization"));
   if (!bearer) {
     context.header("Set-Cookie", profileCookie);
+    // Pin the profile server-side so editing the unsigned profile cookie cannot escape child lock.
+    const token = getCookie(context, AUTH_SESSION_COOKIE);
+    if (token) await database.prepare("UPDATE auth_sessions SET user_id = ? WHERE token = ? AND scope = 'account'").run(userId, token);
     return true;
   }
   const updated = await database.prepare("UPDATE auth_sessions SET user_id = ?, scope = 'account' WHERE token = ?")

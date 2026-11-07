@@ -30,11 +30,6 @@ export const NOTIFICATION_CATEGORY_DEFAULTS: Record<NotificationCategory, boolea
   app_update: true,
 };
 
-// Categories whose notifications are attributed to an individual source
-// (a channel, a followed playlist, or one auto-tag rule) and therefore support
-// per-source overrides in `notification_preferences.source_id`.
-export const NOTIFICATION_SOURCE_KINDS: readonly NotificationCategory[] = ["channel_video", "playlist_video", "tag_rule"];
-
 export function notificationCategory(kind: string): NotificationCategory | string {
   return kind.startsWith("social_") ? "social" : kind;
 }

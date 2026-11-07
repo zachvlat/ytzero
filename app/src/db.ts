@@ -8,6 +8,7 @@ import { database, databaseConfig } from "./database";
 import { ensureChannelPostsPostgresSchema } from "./channelPostsSchema";
 import { migrateSQLiteToPostgres } from "./postgresMigration";
 import { applyDatabaseMigrations } from "./databaseMigrations";
+import { withPostgresBootLock } from "./postgresLocks";
 import { applyCanonicalSQLiteSchema } from "./canonicalSchema";
 import { DEFAULT_VIDEO_CARD_ACTION_CONFIG } from "../../shared/videoCardActions";
 export const DB_PATH = process.env.DB_PATH ?? resolve(import.meta.dir, "../../data/db/ytzero.db");
@@ -402,10 +403,6 @@ export function setSetting(key: string, value: string): Promise<void> {
     .run(key, value).then(() => { settingCache.set(key, value); });
 }
 
-export function isGlobalSetting(key: string): boolean {
-  return GLOBAL_SETTING_KEYS.has(key);
-}
-
 export function getUserSetting(userId: number, key: string): string | null {
   return userSettingCache.get(`${userId}:${key}`) ?? SETTING_DEFAULTS[key] ?? null;
 }
@@ -569,7 +566,7 @@ optimizeSQLite(db, true);
 // The synchronous SQLite bootstrap above remains the canonical local schema
 // builder. Runtime reads, however, must come from the selected engine. A
 // migrated PostgreSQL database already contains these tables and values.
-if (databaseConfig.engine === "postgres") {
+if (databaseConfig.engine === "postgres") await withPostgresBootLock(databaseConfig.url, async () => {
   const schema = await database.prepare("SELECT to_regclass('public.settings') AS settings_table").get() as { settings_table: string | null } | null;
   if (!schema?.settings_table) {
     const localRows = (db.prepare(`
@@ -585,6 +582,8 @@ if (databaseConfig.engine === "postgres") {
     await migrateSQLiteToPostgres(DB_PATH, databaseConfig.url);
   }
   await applyDatabaseMigrations(database);
+});
+if (databaseConfig.engine === "postgres") {
   await database.exec("CREATE TABLE IF NOT EXISTS download_settings (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (user_id, key))");
   await ensureChannelPostsPostgresSchema();
   // Social was added after the first PostgreSQL migration path shipped. Keep

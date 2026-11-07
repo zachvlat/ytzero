@@ -281,4 +281,10 @@ describe("unzipEntries", () => {
     const favorites = entries.find((e) => e.name.includes("Favorites"))!;
     expect(new TextDecoder().decode(favorites.bytes)).toContain("dQw4w9WgXcQ");
   });
+
+  test("refuses entries that expand beyond the size limit (zip bomb)", () => {
+    const zip = buildZip([{ name: "playlists/Big-videos.csv", data: new Uint8Array(4096) }]);
+    expect(() => unzipEntries(zip, isPlaylistCsvName, 1024)).toThrow("size limit");
+    expect(unzipEntries(zip, isPlaylistCsvName, 8192)[0].bytes.length).toBe(4096);
+  });
 });

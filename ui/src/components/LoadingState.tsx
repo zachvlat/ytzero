@@ -103,21 +103,3 @@ export function PageSkeleton() {
     </div>
   );
 }
-
-export function PlaylistItemsSkeleton({ count = 8 }: { count?: number }) {
-  const { t } = useI18n();
-  return (
-    <div className="playlist-items skeleton-playlist" aria-label={t("loading")}>
-      {Array.from({ length: count }, (_, i) => (
-        <div className="playlist-item skeleton-playlist-item" aria-hidden="true" key={i}>
-          <div className="skeleton skeleton-playlist-num" />
-          <div className="skeleton skeleton-playlist-thumb" />
-          <div className="playlist-item-info">
-            <div className="skeleton skeleton-line skeleton-line-title" />
-            <div className="skeleton skeleton-line skeleton-line-meta" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}

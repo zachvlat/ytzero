@@ -21,7 +21,7 @@ import {
 } from "../publicSharing";
 import { diagnosticRequestPath } from "../requestDiagnostics";
 import { normalizeSubtitleLanguage } from "../subtitleAvailability";
-import { subtitleLanguageLabel } from "../subtitleLanguages";
+import { subtitleLanguageLabel } from "../../../shared/subtitleLanguages";
 import {
   tubeArchivistConfigured,
   tubeArchivistResource,

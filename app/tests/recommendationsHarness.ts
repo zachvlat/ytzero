@@ -1,6 +1,6 @@
 const { api } = await import("../src/routes");
 const { db, setUserSetting } = await import("../src/db");
-const { pluginEnabled, setPluginEnabled } = await import("../src/plugins");
+const { pluginEnabled, setPluginEnabled, setPluginSettings } = await import("../src/plugins");
 const { zonedDayHour } = await import("../src/timeZone");
 
 const enabledByDefault = pluginEnabled("discovery");
@@ -125,6 +125,18 @@ db.prepare("INSERT INTO downloads(video_id, status, source) VALUES(?, 'done', 'm
 db.prepare("INSERT INTO download_owners(user_id, video_id, source) VALUES(?, ?, 'manual')").run(downloadsChild.id, "rec-fresh-b");
 const downloadsOnlyAfter = await (await request(downloadsChild.id, "/recommendations?limit=60")).json() as any;
 const recommendationStateRows = (db.prepare("SELECT count(*) AS count FROM discovery_recommendations").get() as { count: number }).count;
+// Keyword search: a local-only child never reaches YouTube, and an adult whose searches all fail falls back to the library.
+let youtubeFetches = 0;
+const realFetch = globalThis.fetch;
+globalThis.fetch = (async () => { youtubeFetches++; throw new Error("network disabled in test"); }) as unknown as typeof fetch;
+await setPluginSettings(child.id, "discovery", { user_keywords: "lego, trains" });
+await setPluginSettings(primaryId, "discovery", { user_keywords: "lego" });
+const childKeyword = await (await request(child.id, "/recommendations?limit=60")).json() as any;
+const childKeywordFetches = youtubeFetches;
+const adultKeywordFallback = await (await request(primaryId, "/recommendations?limit=60")).json() as any;
+const adultKeywordFetches = youtubeFetches - childKeywordFetches;
+globalThis.fetch = realFetch;
+await setPluginSettings(primaryId, "discovery", { user_keywords: "" });
 await setPluginEnabled("discovery", false);
 const disabled = await (await request(primaryId, "/recommendations?limit=60")).json() as any;
 
@@ -151,6 +163,10 @@ console.log("RESULT " + JSON.stringify({
   childIds: childData.videos.map((item: any) => item.video_id),
   downloadsOnlyBefore: downloadsOnlyBefore.videos.map((item: any) => item.video_id),
   downloadsOnlyAfter: downloadsOnlyAfter.videos.map((item: any) => item.video_id),
+  childKeywordIds: childKeyword.videos.map((item: any) => item.video_id),
+  childKeywordFetches,
+  adultKeywordFallbackIds: adultKeywordFallback.videos.map((item: any) => item.video_id),
+  adultKeywordFetches,
 }));
 
 db.close();

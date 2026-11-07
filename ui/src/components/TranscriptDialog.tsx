@@ -3,7 +3,7 @@ import { Captions, Copy, Download, LoaderCircle, RefreshCw } from "lucide-react"
 import { api, ApiError } from "../api";
 import { emitToast } from "../events";
 import { useI18n } from "../i18n";
-import { SUBTITLE_LANGUAGE_CODES, subtitleLanguageLabel } from "../subtitleLanguages";
+import { SUBTITLE_LANGUAGE_CODES, subtitleLanguageLabel } from "../../../shared/subtitleLanguages";
 import { formatTranscript } from "../transcriptFormatter";
 import { profileTranscriptLanguage, rememberProfileTranscriptLanguage } from "../transcriptLanguagePreference";
 import { rememberedProfileId } from "../profilePreference";

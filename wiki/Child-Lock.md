@@ -74,3 +74,4 @@ Child lock and [Authentication](Authentication) are independent layers:
 
 - **Child lock** gates *changing protected settings* and *child-profile boundaries* with the app-wide household PIN. It is owned by the primary profile.
 - **Authentication** gates *who can use the app at all*. When an authentication method is active, the per-profile sign-in replaces per-profile PINs; profiles protected by their own login are switched by signing in as them, and the app-wide settings PIN keeps working as described here.
+- With the `none` method there is no sign-in at all, so the active profile is only a browser cookie. A child who edits that cookie can leave their profile. Use `shared` (or any other method) if child lock must hold against a determined child.

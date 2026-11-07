@@ -1,4 +1,4 @@
-import type { PlaylistSort } from "./playlistSort";
+import type { PlaylistSort } from "../../shared/playlistSort";
 import type { I18nKey } from "./i18n";
 import type { EmojiSkinTone } from "./emojiSkinTone";
 import type { PlaybackQueueContext } from "./playbackQueue";

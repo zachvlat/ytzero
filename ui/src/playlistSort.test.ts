@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { normalizePlaylistSort, normalizeUserPlaylistSort, playlistSortSearch } from "./playlistSort";
+import { normalizePlaylistSort, normalizeUserPlaylistSort, playlistSortSearch } from "../../shared/playlistSort";
 
 describe("playlist sort navigation", () => {
   test("uses oldest first by default and preserves a valid selection", () => {

@@ -1,4 +1,5 @@
 import { database } from "./database";
+import { positiveNumber } from "./adaptiveRefreshConfig";
 import { startChannelPostsScheduler } from "./channelPostsScheduler";
 import { log } from "./logger";
 import {
@@ -14,10 +15,6 @@ import { backgroundTasksEnabled } from "./deploymentMode";
 const FEED_REFRESH_BATCH_SIZE = 10;
 const FEED_REFRESH_FAIRNESS_SLOTS = 2;
 
-function positiveNumber(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 const VIDEO_MAINTENANCE_MAX_AGE_DAYS = positiveNumber(process.env.VIDEO_MAINTENANCE_MAX_AGE_DAYS, 90);
 

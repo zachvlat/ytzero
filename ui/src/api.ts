@@ -3,7 +3,7 @@ import { http, sharedGet } from "./apiHttp";
 import { devicePairingApi } from "./devicePairingApi";
 import type { EmojiSkinTone } from "./emojiSkinTone";
 import { createSocialWatchPartyApi } from "./socialWatchPartyApi";
-import type { PlaylistSort, UserPlaylistSort } from "./playlistSort";
+import type { PlaylistSort, UserPlaylistSort } from "../../shared/playlistSort";
 import type { PlaybackQueueContext } from "./playbackQueue";
 import type { FeedBuilderConfig, FeedBuilderInput, FeedMediaMode, FeedRecipe, FeedRecipeSources } from "../../shared/feedBuilder";
 import type { ChannelSyncMode } from "../../shared/channelSyncModes";

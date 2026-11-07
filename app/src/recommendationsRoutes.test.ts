@@ -31,6 +31,16 @@ beforeAll(async () => {
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("recommendations route", () => {
+  test("keyword search never reaches YouTube for a local-only child", () => {
+    expect(result.childKeywordFetches).toBe(0);
+    expect(result.childKeywordIds).toEqual(result.childIds);
+  });
+
+  test("keyword search falls back to the library when every search fails", () => {
+    expect(result.adultKeywordFetches).toBeGreaterThan(0);
+    expect(result.adultKeywordFallbackIds).toEqual(result.ids);
+  });
+
   test("keeps the recommendations plugin disabled on a fresh installation", () => {
     expect(result.enabledByDefault).toBe(false);
   });

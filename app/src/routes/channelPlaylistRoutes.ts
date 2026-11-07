@@ -6,7 +6,7 @@ import { log } from "../logger";
 import { syncPlaylist } from "../refresher";
 import { videoSelect, type VideoRow } from "../videoRoutesSupport";
 import { profileDownloadsEnabled } from "../downloadConfig";
-import { PLAYLIST_SORTS, normalizePlaylistSort, sortPlaylistItems } from "../playlistSort";
+import { PLAYLIST_SORTS, normalizePlaylistSort, sortPlaylistItems } from "../../../shared/playlistSort";
 import { shortsUiVisibilitySql } from "../feedQuery";
 import { isDownloadQuality, type DownloadQuality } from "../downloadSettings";
 

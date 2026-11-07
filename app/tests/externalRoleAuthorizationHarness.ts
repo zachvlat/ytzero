@@ -12,7 +12,7 @@ async function request(path: string, method = "GET", body?: unknown, headers: Re
     method,
     headers: { ...headers, "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  }, { requestIP: () => ({ address: "127.0.0.1", family: "IPv4", port: 0 }) });
 }
 
 const ownerHeaders = { Cookie: "ytzero_profile=1" };

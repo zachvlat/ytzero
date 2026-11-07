@@ -140,7 +140,7 @@ A trusted reverse proxy (e.g. **Authelia** with forward-auth) authenticates the 
 
 Profile switching is disabled internally — the profile menu offers a sign-out that redirects to the configured logout URL.
 
-> **Important:** only enable this behind a proxy that *always* sets the header and strips any client-supplied copy. Without a trusted proxy, anyone could send the header themselves.
+> **Important:** only enable this behind a proxy that *always* sets the header and strips any client-supplied copy. Without a trusted proxy, anyone could send the header themselves. YT Zero only accepts the header from loopback and private-network peers (typical Docker/LAN proxies); set `YTZERO_TRUSTED_PROXIES` to a comma-separated list of exact proxy IPs to narrow that further.
 
 ---
 

@@ -6,7 +6,7 @@ import { useI18n } from "../../i18n";
 import { img } from "../../img";
 import { VideoThumbnail, watchProgress } from "../VideoThumbnail";
 import "./WatchPlaylistPanel.css";
-import { playlistSortSearch, type PlaylistSort } from "../../playlistSort";
+import { playlistSortSearch, type PlaylistSort } from "../../../../shared/playlistSort";
 
 export default function WatchPlaylistPanel({
   activeItemRef,

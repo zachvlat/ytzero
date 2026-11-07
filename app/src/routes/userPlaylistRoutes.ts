@@ -6,7 +6,7 @@ import { log } from "../logger";
 import { refreshDiscoveryInBackground } from "../plugins";
 import { applyPlaylistRuleToAllVideos, applyPlaylistRulesForPlaylist } from "../userPlaylists";
 import { videoPlaylistsForUser } from "../channelPlaylists";
-import { normalizePlaylistSort } from "../playlistSort";
+import { normalizePlaylistSort } from "../../../shared/playlistSort";
 import { sortFetchedPlaylistVideos } from "../playlistVideoOrder";
 import { fetchPlaylistVideos } from "../youtube";
 import { importPlaylistVideos } from "../refresher";

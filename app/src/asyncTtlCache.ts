@@ -63,3 +63,13 @@ export class AsyncTtlCache<T> {
     }
   }
 }
+
+/** Map.set that drops the oldest entries past `maxEntries`, so plain TTL maps can't grow forever. */
+export function setBounded<K, V>(map: Map<K, V>, key: K, value: V, maxEntries = 500): void {
+  map.delete(key); // re-insert so the key becomes the newest
+  map.set(key, value);
+  for (const oldest of map.keys()) {
+    if (map.size <= maxEntries) break;
+    map.delete(oldest);
+  }
+}

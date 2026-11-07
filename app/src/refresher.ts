@@ -20,6 +20,7 @@ import { channelSyncJobIsRunning } from "./channelSyncRuntime";
 import { isYouTubeRateLimitError, isYouTubeRefusalError } from "./youtubeRateLimit";
 import { RSS_VIDEO_UPSERT_SQL } from "./videoUpserts";
 import { syncChannelVideoAvailability } from "./videoAvailabilitySync";
+import { rowsOutOfBackoff } from "./backoffRows";
 import { inferIsShortFromMetadata, shortCheckRetryInterval } from "./shortClassification";
 const upsertVideo = database.prepare(RSS_VIDEO_UPSERT_SQL);
 const videoExists = database.prepare("SELECT 1 FROM videos WHERE video_id = ?");
@@ -96,7 +97,8 @@ export async function channelRefreshDiagnostics(channelId: string) {
     lastAttemptedAt: row.feed_refresh_attempted_at,
     consecutiveFailures: Number(row.feed_refresh_failures) || 0, publishedAt,
   };
-  const options = adaptiveRefreshOptions();
+  const followed = await database.prepare("SELECT COUNT(*) AS count FROM channels WHERE manual_status = 'active' AND channel_id IN (SELECT channel_id FROM user_channels WHERE followed = 1)").get() as { count: number };
+  const options = adaptiveRefreshOptions(false, Number(followed.count));
   const cadenceMs = estimateUploadCadenceMs(publishedAt);
   const targetIntervalMs = targetRefreshIntervalMs(candidate, options);
   const lastAttemptMs = row.feed_refresh_attempted_at
@@ -947,7 +949,6 @@ export function syncChannelRecent(channelId: string, userId?: number): Promise<C
 
 let refreshing = false;
 export const feedRefreshIsRunning = () => refreshing;
-export const channelFullSyncIsRunning = () => channelSyncsInFlight.size > 0;
 
 /**
  * Fetch and save avatar + subscriber count for a small batch of channels,
@@ -1092,20 +1093,20 @@ export async function refreshVideoMetadataBatch(limit = 10) {
   }
   await refreshPlaylistDurations();
   const now = Date.now();
-  const candidates = await database
+  const candidatePage = database
     .prepare(
       `SELECT video_id, live_status FROM videos
        WHERE (duration IS NULL OR published_at IS NULL OR published_at = '' OR published_at_approximate = 1)
          AND is_private = 0 AND is_unavailable = 0
          AND live_status IN ('none', 'was_live')
          AND (published_at >= datetime('now', ?) OR created_at >= datetime('now', ?))
-       ORDER BY created_at DESC, COALESCE(published_at, '1970-01-01') DESC
-       LIMIT ?`
-    )
-    .all(VIDEO_MAINTENANCE_CUTOFF, VIDEO_MAINTENANCE_CUTOFF, limit * 3) as { video_id: string; live_status: string }[];
-  const rows = candidates
-    .filter((r) => (durationRetry.get(r.video_id)?.nextAt ?? 0) <= now)
-    .slice(0, limit);
+       ORDER BY created_at DESC, COALESCE(published_at, '1970-01-01') DESC, video_id
+       LIMIT ? OFFSET ?`
+    );
+  const rows = await rowsOutOfBackoff(
+    (size, offset) => candidatePage.all(VIDEO_MAINTENANCE_CUTOFF, VIDEO_MAINTENANCE_CUTOFF, size, offset) as Promise<{ video_id: string; live_status: string }[]>,
+    durationRetry, limit, now,
+  );
   if (rows.length === 0) return;
 
   const save = database.prepare("UPDATE videos SET duration = ? WHERE video_id = ? AND duration IS NULL");
@@ -1211,14 +1212,17 @@ export async function backfillImportedVideos(limit = 15) {
   // Anything still parked on the placeholder channel needs enrichment, even
   // when the export supplied a title (history entries). Playlist members and
   // titleless videos first — a titled history row is already presentable.
-  const candidates = await database.prepare(`
+  const candidatePage = database.prepare(`
     SELECT video_id FROM videos
     WHERE channel_id = ? AND is_private = 0 AND is_unavailable = 0
     ORDER BY (video_id IN (SELECT video_id FROM user_playlist_videos)) DESC,
-             (title IS NULL OR title = '') DESC, created_at ASC
-    LIMIT ?
-  `).all(IMPORTED_CHANNEL_ID, limit * 3) as { video_id: string }[];
-  const rows = candidates.filter((r) => (importRetry.get(r.video_id)?.nextAt ?? 0) <= now).slice(0, limit);
+             (title IS NULL OR title = '') DESC, created_at ASC, video_id
+    LIMIT ? OFFSET ?
+  `);
+  const rows = await rowsOutOfBackoff(
+    (size, offset) => candidatePage.all(IMPORTED_CHANNEL_ID, size, offset) as Promise<{ video_id: string }[]>,
+    importRetry, limit, now,
+  );
   if (rows.length === 0) return;
 
   let enriched = 0;
@@ -1300,7 +1304,8 @@ export async function refreshAll(options: { force?: boolean; manualOnly?: boolea
   try {
     // Any channel at least one profile follows. A channel followed by several
     // profiles is fetched once here (dedup), then surfaces in each feed.
-    const selected = selectRefreshBatch(await feedRefreshCandidates(), adaptiveRefreshOptions(options.force));
+    const candidates = await feedRefreshCandidates();
+    const selected = selectRefreshBatch(candidates, adaptiveRefreshOptions(options.force, candidates.length));
     const channels = options.manualOnly ? selected.filter((channel) => channel.reason === "manual") : selected;
     log.info("refresh.start", {
       channels: channels.length,
@@ -1362,7 +1367,6 @@ export async function refreshAll(options: { force?: boolean; manualOnly?: boolea
 }
 
 let liveRefreshing = false;
-export const liveStatusRefreshIsRunning = () => liveRefreshing;
 
 /**
  * Check live status for all followed channels. Runs on a short interval

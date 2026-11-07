@@ -23,6 +23,12 @@ beforeAll(async () => {
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("profile-scoped downloads", () => {
+  test("rejects path-like video ids instead of deleting files outside the downloads folder", () => {
+    expect(result.traversalDeleteStatus).toBe(404);
+    expect(result.traversalSentinelSurvived).toBe(true);
+  });
+
+
   test("shows only the active profile unless an administrator requests all", () => {
     expect(result.primaryMine).toEqual(["1:scope-primary", "1:scope-shared"]);
     expect(result.secondaryMine).toEqual([`${result.secondaryId}:scope-secondary`, `${result.secondaryId}:scope-shared`]);

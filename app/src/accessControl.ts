@@ -150,11 +150,6 @@ export async function updateGroupPermissions(groupId: number, permissions: reado
   for (const permission of permissions) await database.prepare("INSERT INTO permission_group_permissions(group_id,permission,allowed) VALUES(?,?,1)").run(groupId, permission);
 }
 
-export async function bumpAccessRevision(expectedRevision: number): Promise<boolean> {
-  const result = await database.prepare("UPDATE permission_policy SET revision=revision+1 WHERE singleton=1 AND revision=?").run(expectedRevision);
-  return Number(result.changes ?? 0) === 1;
-}
-
 export async function updateProfileAccess(userId: number, groupId: number, overrides: Partial<Record<ProfilePermissionArea, Exclude<PermissionOverride, "inherit">>>) {
   await assignProfile(userId, groupId);
   await database.prepare("DELETE FROM profile_permission_overrides WHERE user_id=?").run(userId);

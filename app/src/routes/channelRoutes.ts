@@ -15,7 +15,7 @@ import { cancelAutoDownloadIfUnwanted } from "../downloader";
 import { childHidesLive, isChildUser } from "../childTime";
 import { CHANNEL_PLAYLIST_CACHE_VERSION, saveChannelPlaylists } from "../channelPlaylists";
 import { isChannelManualStatus } from "../channelStatus";
-import { SUBTITLE_LANGUAGE_CODES } from "../subtitleLanguages";
+import { SUBTITLE_LANGUAGE_CODES } from "../../../shared/subtitleLanguages";
 import { videoSelect, type VideoRow } from "../videoRoutesSupport";
 import { ABOUT_DB_TTL, ageMs, PLAYLISTS_DB_TTL } from "../routeCache";
 import { registerChannelSyncRoutes, registerSingleChannelSyncRoute } from "./channelSyncRoutes";

@@ -1,6 +1,6 @@
 import type { Context, Hono } from "hono";
 import { database } from "../database";
-import { SUBTITLE_LANGUAGE_CODES } from "../subtitleLanguages";
+import { SUBTITLE_LANGUAGE_CODES } from "../../../shared/subtitleLanguages";
 import { fetchTranscript, TranscriptError } from "../transcripts";
 import { validYouTubeVideoId } from "../youtubeComments";
 

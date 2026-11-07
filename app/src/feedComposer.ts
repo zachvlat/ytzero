@@ -405,18 +405,6 @@ export async function createComposition(
   return page;
 }
 
-export async function compositionPlaybackOrder(userId: number, compositionId: string): Promise<string[]> {
-  const session = await database.prepare("SELECT state_json,expires_at_ms FROM feed_composition_sessions WHERE id=? AND user_id=?")
-    .get<{ state_json: string; expires_at_ms: number }>(compositionId, userId);
-  if (!session || session.expires_at_ms <= Date.now()) return [];
-  try {
-    const state = JSON.parse(session.state_json) as Partial<ComposerState>;
-    return Array.isArray(state.playbackOrder) ? state.playbackOrder.filter((id): id is string => typeof id === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
 export async function compositionPage(
   userId: number,
   compositionId: string,

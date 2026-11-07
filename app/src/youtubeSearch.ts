@@ -1,3 +1,4 @@
+import { setBounded } from "./asyncTtlCache";
 import { decodeHtmlEntities } from "./htmlEntities";
 import type { ChannelSearchResult, PublishedAgo, SearchResult } from "./youtube";
 import { readYouTubeResponseWithCookies } from "./youtubeCookieJar";
@@ -217,7 +218,7 @@ async function searchYouTube(query: string, userId?: number): Promise<{ results:
   }
 
   const result = { results: results.slice(0, 20), channels: channels.slice(0, 10) };
-  searchCache.set(cacheKey, { at: Date.now(), data: result });
+  setBounded(searchCache, cacheKey, { at: Date.now(), data: result });
   return result;
 }
 

@@ -1,4 +1,4 @@
-import { normalizeUserPlaylistSort, sortUserPlaylistItems } from "./playlistSort";
+import { normalizeUserPlaylistSort, sortUserPlaylistItems } from "../../shared/playlistSort";
 import { database } from "./database";
 
 export interface UserPlaylistSortable {

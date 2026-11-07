@@ -3,7 +3,7 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as Reac
 import { ArrowDownToLine, Camera, Clapperboard, LoaderCircle, Maximize, Minimize, MonitorPlay, Pause, PictureInPicture2, Play, Volume2, VolumeX } from "lucide-react";
 import type { AvailableSubtitle, SponsorSegment, VideoChapter, VideoSubtitle } from "../api";
 import { api, SB_CATEGORIES } from "../api";
-import { subtitleLanguageLabel } from "../subtitleLanguages";
+import { subtitleLanguageLabel } from "../../../shared/subtitleLanguages";
 import { useI18n } from "../i18n";
 import SubtitlePicker from "./SubtitlePicker";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";

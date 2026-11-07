@@ -1,4 +1,4 @@
-import { SUBTITLE_LANGUAGES } from "./subtitleLanguages";
+import { SUBTITLE_LANGUAGES } from "../../shared/subtitleLanguages";
 import type { BaseLocalizedText } from "./serverMessages";
 import { localizeServerMessage } from "./serverMessages";
 

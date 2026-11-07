@@ -153,7 +153,15 @@ const ruleOfflineResult = {
   requestedQuality: db.prepare("SELECT requested_quality FROM downloads WHERE video_id='playlist-rule-future'").get(),
 };
 
+// A path-like id must never reach the filesystem (it once deleted files outside the downloads folder).
+const traversalSentinel = join(Bun.env.DOWNLOADS_DIR!, "..", "traversal-sentinel.txt");
+await Bun.write(traversalSentinel, "keep me");
+const traversalDelete = await request(1, "/videos/..%2Ftraversal-sentinel.txt/download", { method: "DELETE" });
+const traversalSentinelSurvived = await Bun.file(traversalSentinel).exists();
+
 console.log("RESULT " + JSON.stringify({
+  traversalDeleteStatus: traversalDelete.status,
+  traversalSentinelSurvived,
   secondaryId: secondary.id,
   primaryMine: primaryMine.value.downloads.map((item: any) => `${item.user_id}:${item.video_id}`).sort(),
   secondaryMine: secondaryMine.value.downloads.map((item: any) => `${item.user_id}:${item.video_id}`).sort(),

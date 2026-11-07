@@ -60,13 +60,6 @@ export interface FeedBuilderInput extends Omit<FeedBuilderConfig, "version" | "r
   revision?: number;
 }
 
-export const EMPTY_FEED_RECIPE_SOURCES: Readonly<FeedRecipeSources> = Object.freeze({
-  channelIds: [],
-  tagUuids: [],
-  youtubePlaylistIds: [],
-  userPlaylistUuids: [],
-});
-
 export function defaultFeedBuilderConfig(): FeedBuilderConfig {
   return {
     version: 1,

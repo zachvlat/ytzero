@@ -15,7 +15,7 @@ import { Button, EmptyState, IconButton, Input, LocalToast, Menu, MenuItem, Menu
 import EmptyArt from "../components/illustrations/EmptyArt";
 import PlaylistPlaybackActions from "../components/PlaylistPlaybackActions";
 import type { PlayVideo, PlaybackQueueContext } from "../playbackQueue";
-import { normalizeUserPlaylistSort, type UserPlaylistSort } from "../playlistSort";
+import { normalizeUserPlaylistSort, type UserPlaylistSort } from "../../../shared/playlistSort";
 import { HeaderSettingsHeader, HeaderSettingsItem, HeaderSettingsOption, HeaderSettingsPopover } from "../components/HeaderSettingsMenu";
 import PublicShareControl from "../components/PublicShareControl";
 

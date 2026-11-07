@@ -16,7 +16,7 @@ import { img } from "../img";
 import { emit } from "../events";
 import { formatAddedVideos, formatPlaylistVideoCount, useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
-import { SUBTITLE_LANGUAGES, subtitleLanguageLabel } from "../subtitleLanguages";
+import { SUBTITLE_LANGUAGES, subtitleLanguageLabel } from "../../../shared/subtitleLanguages";
 import { Badge, Button, ButtonAnchor, EmptyState, Input, MenuItem, Popover, SectionHeader, SplitButton, Tabs } from "../components/ui";
 import { formatAppDate, parseAppTimestamp } from "../dateTime";
 import ChannelRefreshScheduleDialog from "../components/ChannelRefreshScheduleDialog";

@@ -1,6 +1,6 @@
 import { database } from "./database";
 import type { PlaylistVideo } from "./youtube";
-import { sortPlaylistItems, type PlaylistSort } from "./playlistSort";
+import { sortPlaylistItems, type PlaylistSort } from "../../shared/playlistSort";
 
 export async function sortFetchedPlaylistVideos(
   videos: readonly PlaylistVideo[],

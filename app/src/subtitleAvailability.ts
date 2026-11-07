@@ -1,6 +1,6 @@
 import { downloadCookiesConfigured, ytdlpCommand } from "./downloadConfig";
 import { log } from "./logger";
-import { subtitleLanguageLabel } from "./subtitleLanguages";
+import { subtitleLanguageLabel } from "../../shared/subtitleLanguages";
 import { safeSubtitleUpstreamUrl } from "./subtitleUpstream";
 
 const YOUTUBE_OPAQUE_TRACK_SUFFIX = /^(.*)-[A-Za-z0-9_-]{11}$/;
@@ -197,8 +197,4 @@ export async function subtitleStreamForVideo(userId: number, videoId: string, la
     if (url) return url;
   }
   return null;
-}
-
-export function clearSubtitleAvailabilityCache(): void {
-  metadataCache.clear();
 }

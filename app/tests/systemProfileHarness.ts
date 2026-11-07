@@ -32,6 +32,18 @@ await setSetting("child_lock_pin_hash", await Bun.password.hash("246802"));
 assert.equal((await request("/profiles/switch", "POST", { id: 1 })).status, 401);
 assert.equal((await request("/profiles/switch", "POST", { id: 1, child_lock_pin: "246802" })).status, 200);
 
+// Shared household login: the chosen profile lives on the session row, so editing the
+// unsigned profile cookie can't take a child back to the admin profile.
+await setSetting("auth_method", "shared");
+const household = await createSession(null, "account");
+const cookieRequest = (path: string, method = "GET", body?: unknown, profileId?: number) => api.request(`http://localhost${path}`, {
+  method,
+  headers: { "Content-Type": "application/json", Cookie: `ytzero_session=${household}${profileId ? `; ytzero_profile=${profileId}` : ""}` },
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+});
+assert.equal((await cookieRequest("/profiles/switch", "POST", { id: profile.id })).status, 200);
+assert.equal((await (await cookieRequest("/profiles", "GET", undefined, 1)).json() as any).active_id, profile.id);
+
 await setSetting("auth_method", "per_profile");
 const personalToken = await createSession(profile.id, "profile");
 const denied = await request("/profiles/switch", "POST", { id: 1 }, personalToken);

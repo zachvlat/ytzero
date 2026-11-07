@@ -17,6 +17,8 @@ export interface AdaptiveRefreshOptions {
   maxIntervalMs: number;
   unknownIntervalMs: number;
   inactiveMaxIntervalMs: number;
+  /** How long one full rotation through every followed channel takes at the configured batch rate. */
+  rotationIntervalMs?: number;
   force?: boolean;
 }
 
@@ -65,7 +67,11 @@ export function targetRefreshIntervalMs(candidate: RefreshCandidate, options: Ad
   const failureBackoff = failures === 0
     ? 0
     : Math.min(options.inactiveMaxIntervalMs, options.minIntervalMs * 2 ** failures);
-  return Math.min(options.inactiveMaxIntervalMs, Math.max(base, recencyFloor, failureBackoff));
+  const adaptiveTarget = Math.min(options.inactiveMaxIntervalMs, Math.max(base, recencyFloor));
+  // Spare request budget: when every channel fits in the rotation (small installs), quiet channels
+  // need not wait hours; check them once per rotation. Failure backoff still applies.
+  const withinBudget = Math.min(adaptiveTarget, Math.max(options.minIntervalMs, options.rotationIntervalMs ?? Number.POSITIVE_INFINITY));
+  return Math.min(options.inactiveMaxIntervalMs, Math.max(withinBudget, failureBackoff));
 }
 
 function lastAttemptMs(candidate: RefreshCandidate) {

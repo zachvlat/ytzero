@@ -88,7 +88,8 @@ importTakeoutHistory = async (uid: number, entries: TakeoutHistoryEntry[], from:
   const markWatched = database.prepare(
     `INSERT INTO user_videos (user_id, video_id, status, watched) VALUES (?, ?, 'archived', 1)
      ON CONFLICT(user_id, video_id) DO UPDATE SET
-       status = 'archived', watched = 1, bucket = NULL, queued_at = NULL, show_from = NULL`
+       status = 'archived', watched = 1, bucket = NULL, queued_at = NULL, show_from = NULL
+     WHERE user_videos.status <> 'queued'` // old history must not pull a video the user queued again out of the queue
   );
 
   let historyAdded = 0;

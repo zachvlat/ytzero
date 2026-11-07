@@ -1,14 +1,11 @@
 import type { ChannelSyncMode } from "../../shared/channelSyncModes";
+import { positiveNumber } from "./adaptiveRefreshConfig";
 import { publishAppEvent, publishAppEventForUser } from "./appEvents";
 import { createChannelSyncJobManager, type ChannelSyncJobTarget } from "./channelSyncJobs";
 import { beginMutation } from "./maintenance";
 
 type SyncChannel = (channelId: string, mode: ChannelSyncMode) => Promise<{ added: number; rateLimited?: boolean }>;
 
-function positiveNumber(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 // The worker is injected per profile rather than kept as one process-wide
 // implementation: profiles run their jobs concurrently, and each worker carries

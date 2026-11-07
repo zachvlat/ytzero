@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { normalizePlaylistSort, normalizeUserPlaylistSort, sortPlaylistItems, sortUserPlaylistItems } from "./playlistSort";
+import { normalizePlaylistSort, normalizeUserPlaylistSort, sortPlaylistItems, sortUserPlaylistItems } from "../../shared/playlistSort";
 
 const items = [
   { id: "three", title: "Part 10", publishedAt: "2026-03-01" },

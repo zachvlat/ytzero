@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AsyncTtlCache } from "./asyncTtlCache";
+import { AsyncTtlCache, setBounded } from "./asyncTtlCache";
 
 describe("AsyncTtlCache", () => {
   test("coalesces concurrent work and reuses a recently completed result", async () => {
@@ -76,5 +76,16 @@ describe("AsyncTtlCache", () => {
     finish(3);
     expect(await Promise.all([pending, forcedPending])).toEqual([3, 3]);
     expect(loads).toBe(3);
+  });
+});
+
+describe("setBounded", () => {
+  test("drops the oldest entries and keeps re-set keys", () => {
+    const map = new Map<string, number>();
+    setBounded(map, "a", 1, 2);
+    setBounded(map, "b", 2, 2);
+    setBounded(map, "a", 3, 2); // "a" becomes newest
+    setBounded(map, "c", 4, 2);
+    expect([...map.entries()]).toEqual([["a", 3], ["c", 4]]);
   });
 });

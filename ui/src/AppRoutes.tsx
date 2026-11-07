@@ -1,10 +1,15 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { api, type ChildStatus, type ProfilePermissions, type Video } from "./api";
+import type { PluginSettingValue } from "./pluginTypes";
 import type { ToastVariant } from "./events";
 import type { PlaybackQueueContext } from "./playbackQueue";
 import type { ChannelOpenSyncMode } from "../../shared/channelSyncModes";
 import { DelayedPageSkeleton } from "./components/LoadingState";
+
+// Module-level so the page gets stable functions and does not refetch settings on every render.
+const loadDiscoverySettings = () => api.pluginSettings("discovery");
+const updateDiscoverySettings = (patch: Record<string, PluginSettingValue>) => api.updatePluginSettings("discovery", patch);
 const ArchivePage = lazy(() => import("./pages/ArchivePage"));
 const BookmarksPage = lazy(() => import("./pages/BookmarksPage"));
 const ChannelPage = lazy(() => import("./pages/ChannelPage"));
@@ -64,7 +69,13 @@ export default function AppRoutes({
         <Route path="/" element={<FeedPage onPlay={onPlay} showToast={showToast} feedSort={feedSort} keepWatchedInFeed={keepWatchedInFeed} showTopChannels={showTopChannels} />} />
         <Route path="/search" element={<SearchPage onPlay={onPlay} hideExternalSearch={childStatus?.local_only ?? false} />} />
         <Route path="/recommendations" element={enabledPluginRoutes?.has("/recommendations")
-          ? <RecommendationsPage onPlay={onPlay} loadRecommendations={api.recommendations} />
+          ? <RecommendationsPage
+            onPlay={onPlay}
+            loadRecommendations={api.recommendations}
+            loadPluginSettings={loadDiscoverySettings}
+            updatePluginSettings={updateDiscoverySettings}
+            showToast={showToast}
+          />
           : <Navigate to="/" replace />} />
         <Route path="/social" element={enabledPluginRoutes?.has("/social")
           ? <SocialPage onPlay={onPlay} showToast={showToast} />

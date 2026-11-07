@@ -1,4 +1,4 @@
-import { childDownloadsOnly, childHidesLive } from "./childTime";
+import { childDownloadsOnly, childHidesLive, childLocalOnly } from "./childTime";
 import { database } from "./database";
 import { getUserSetting } from "./db";
 import { feedSortSql, feedVisibilityWhere, shortsUiVisibilitySql } from "./feedQuery";
@@ -112,7 +112,7 @@ async function orderedVideoIds(userId: number, context: Exclude<PlaybackContext,
   if (context.kind === "channel-playlist") {
     return (await sortFetchedPlaylistVideos(await fetchPlaylistVideos(context.playlistId, userId), context.sort)).map((video) => video.videoId);
   }
-  if (context.kind === "recommendations") return recommendationQueueVideoIds(userId, { downloadsOnly: childDownloadsOnly(userId) });
+  if (context.kind === "recommendations") return recommendationQueueVideoIds(userId, { downloadsOnly: childDownloadsOnly(userId), allowExternal: !childLocalOnly(userId) });
   if (context.kind === "in-progress") {
     return [];
   }

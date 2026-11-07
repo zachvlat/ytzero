@@ -2,8 +2,6 @@ import type { ReactNode } from "react";
 import { cx } from "./utils";
 import "./PermissionMatrix.css";
 
-export type PermissionMatrixValue = "inherit" | "allow" | "deny";
-
 /** A large-data table with pinned identity columns and domain-rendered cells. */
 export function PermissionMatrix<Row extends { id: number | string }>({ rows, columns, corner, secondaryHeader, renderRow, renderSecondary, renderCell, rowDisabled }: {
   rows: readonly Row[];

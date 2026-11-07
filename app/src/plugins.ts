@@ -1,6 +1,7 @@
 import { database } from "./database";
 import { getSetting, reloadSettingCache } from "./db";
 import { classifyIsShort, fetchChannelAbout, fetchVideoInfo, searchYouTube, type SearchResult, type VideoInfo } from "./youtube";
+import { AsyncTtlCache } from "./asyncTtlCache";
 import { isYouTubeRefusalError } from "./youtubeRateLimit";
 import { buildKeywordPlan, tokenizeDiscoveryText, type KeywordSeed } from "./discoveryKeywords";
 import { maintenanceActive } from "./maintenance";
@@ -1018,8 +1019,9 @@ async function rankedRecommendationQueue(uid: number, options: Pick<Recommendati
   return mixRecommendations(local, 300, settings);
 }
 
-export async function recommendationQueueVideoIds(uid: number, options: Pick<RecommendationFeedOptions, "downloadsOnly"> = {}): Promise<string[]> {
-  return (await rankedRecommendationQueue(uid, options))
+export async function recommendationQueueVideoIds(uid: number, options: Pick<RecommendationFeedOptions, "downloadsOnly" | "allowExternal"> = {}): Promise<string[]> {
+  if (!pluginEnabled("discovery")) return [];
+  return (await recommendationPool(uid, options))
     .map((recommendation) => recommendation.video?.video_id)
     .filter((videoId): videoId is string => Boolean(videoId));
 }
@@ -1034,21 +1036,97 @@ export async function recommendationFeed(uid: number, options: RecommendationFee
     has_more: false, summary: await recommendationSummary(uid),
   };
 
-  // Rank and diversify the complete bounded pool before slicing pages. This
-  // keeps page boundaries deterministic and lets lower-ranked channels fill
-  // slots left by the per-channel cap.
-  const ranked = await rankedRecommendationQueue(uid, { downloadsOnly: options.downloadsOnly });
+  const ranked = await recommendationPool(uid, options);
   const offset = page * limit;
-  const recommendations = ranked.slice(offset, offset + limit);
   return {
     enabled,
     external_enabled: false,
-    recommendations,
+    recommendations: ranked.slice(offset, offset + limit),
     page,
     limit,
     has_more: ranked.length > offset + limit,
     summary: await recommendationSummary(uid),
   };
+}
+
+export function recommendationKeywords(raw: unknown): string[] {
+  // At most 20 keywords: each one costs a YouTube search.
+  return [...new Set(String(raw ?? "").split(",").map((keyword) => keyword.trim()).filter(Boolean))].slice(0, 20);
+}
+
+/** Keyword search results when the profile set keywords (and may see YouTube); otherwise the local-library ranking. */
+async function recommendationPool(uid: number, options: RecommendationFeedOptions): Promise<DiscoveryRecommendation[]> {
+  const keywords = recommendationKeywords((await discoverySettings(uid)).user_keywords);
+  // Child profiles limited to local or downloaded videos must never get live YouTube search results.
+  if (keywords.length > 0 && options.allowExternal !== false && !options.downloadsOnly) {
+    try {
+      return await keywordRecommendationCache.run(`${uid}\n${keywords.join(",")}`, () => searchKeywordRecommendations(uid, keywords), Boolean(options.refresh));
+    } catch (error) {
+      log.warn("discovery.keyword_search_failed", { error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  return rankedRecommendationQueue(uid, { downloadsOnly: options.downloadsOnly });
+}
+
+// One bounded pool per profile+keywords, reused across pages, so scrolling does not re-run every YouTube search.
+const KEYWORD_POOL_SIZE = 60;
+const keywordRecommendationCache = new AsyncTtlCache<DiscoveryRecommendation[]>({ ttlMs: 30 * 60_000, maxEntries: 64 });
+
+// YouTube calls run in small parallel batches: fast enough for a page load, gentle enough to avoid rate limits.
+const KEYWORD_BATCH_SIZE = 8;
+
+async function inBatches<T, R>(items: T[], run: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = [];
+  for (let start = 0; start < items.length; start += KEYWORD_BATCH_SIZE) {
+    out.push(...await Promise.all(items.slice(start, start + KEYWORD_BATCH_SIZE).map(run)));
+  }
+  return out;
+}
+
+/** One search result as a recommendation, or null for Shorts, live streams, dismissed and unavailable videos. */
+async function keywordRecommendation(uid: number, keyword: string, result: SearchResult): Promise<DiscoveryRecommendation | null> {
+  if (await database.prepare("SELECT 1 FROM recommendation_feedback WHERE user_id = ? AND video_id = ? AND action = 'dismiss'").get(uid, result.videoId)) return null;
+  const recommendation = (video: any): DiscoveryRecommendation => ({ kind: "local", score: 0, reasons: ["keyword:" + keyword], query: keyword, video });
+  // Videos already in the library need no YouTube calls.
+  const known = await selectVideo(uid, result.videoId);
+  if (known && (known.is_private || known.is_short === 1 || known.live_status !== "none")) return null;
+  if (known && known.is_short === 0) return recommendation(known);
+  // Search results carry the duration, so most Shorts are rejected without a network call.
+  if (await classifyIsShort(result.videoId, result.title, fetch, result.duration) !== false) return null;
+  let info: VideoInfo | null;
+  try { info = await fetchVideoInfo(result.videoId); }
+  catch { return null; }
+  if (!info || info.liveStatus !== "none") return null;
+  const avatar = result.channelAvatar ?? (await fetchChannelAbout(info.channelId).catch(() => null))?.avatar ?? "";
+  await upsertExternalVideo(info, avatar);
+  const video = await selectVideo(uid, info.videoId);
+  return video ? recommendation(video) : null;
+}
+
+async function searchKeywordRecommendations(uid: number, keywords: string[]): Promise<DiscoveryRecommendation[]> {
+  let lastError: unknown = null;
+  const searches = await inBatches(keywords, (keyword) => searchYouTube(keyword, uid)
+    .then((search) => search.results, (error) => { lastError = error; return null; }));
+  // Every search failed (offline, rate limited): throw so the empty result isn't cached and the caller falls back.
+  if (searches.every((results) => results === null)) throw lastError ?? new Error("keyword search failed");
+
+  const collected: DiscoveryRecommendation[] = [];
+  const seen = new Set<string>();
+  const perKeyword = Math.ceil(KEYWORD_POOL_SIZE / keywords.length);
+  for (const [index, keyword] of keywords.entries()) {
+    const fresh = (searches[index] ?? []).filter((result) => !seen.has(result.videoId));
+    for (const result of fresh) seen.add(result.videoId);
+    let taken = 0;
+    for (let start = 0; start < fresh.length && taken < perKeyword && collected.length < KEYWORD_POOL_SIZE; start += KEYWORD_BATCH_SIZE) {
+      const batch = await inBatches(fresh.slice(start, start + KEYWORD_BATCH_SIZE), (result) => keywordRecommendation(uid, keyword, result));
+      for (const recommendation of batch) {
+        if (!recommendation || taken >= perKeyword || collected.length >= KEYWORD_POOL_SIZE) continue;
+        collected.push(recommendation);
+        taken++;
+      }
+    }
+  }
+  return collected;
 }
 
 function mixRecommendations(recommendations: DiscoveryRecommendation[], limit: number, settings: Record<string, number>) {

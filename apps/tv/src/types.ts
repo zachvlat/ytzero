@@ -192,11 +192,6 @@ export type BookmarkVideo = Video & {
   bookmark_updated_at: string;
 };
 
-export type StoredSession = {
-  instanceUrl: string;
-  accessToken: string;
-};
-
 export type PlaybackTicket = {
   ticket: string;
   url: string;

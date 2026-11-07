@@ -204,7 +204,7 @@ export async function revalidateCurrentRequestUser(c: any, expectedUserId: numbe
 
   const session = await validateSession(parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE]);
   if (!session) return false;
-  const userId = session.scope === "account" ? await profileFromCookie(c) : session.user_id ?? 0;
+  const userId = session.scope === "account" ? session.user_id ?? await profileFromCookie(c) : session.user_id ?? 0;
   return userId === expectedUserId;
 }
 
@@ -239,7 +239,8 @@ api.use("*", async (c, next) => {
   // shared | per_profile | oidc → server-side session
   const session = await validateSession(parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE]);
   if (session) {
-    const userId = session.scope === "account" ? await profileFromCookie(c) : session.user_id ?? 0;
+    // The profile chosen via /profiles/switch lives on the session row; the cookie is only a fallback before the first switch.
+    const userId = session.scope === "account" ? session.user_id ?? await profileFromCookie(c) : session.user_id ?? 0;
     c.set("userId", userId);
     c.set("sessionAdmin", session.is_admin);
     if (session.permission_group_uuid) c.set("permissionGroupUuid", session.permission_group_uuid);

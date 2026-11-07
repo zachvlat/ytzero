@@ -19,7 +19,8 @@ export interface AutoTagMatch {
   pattern: string;
 }
 
-function ruleMatches(rule: Rule, title: string, description: string): boolean {
+/** Shared by auto-tag rules and user-playlist rules. */
+export function ruleMatches(rule: Pick<Rule, "field" | "match_type" | "pattern">, title: string, description: string): boolean {
   const haystacks: string[] = [];
   if (rule.field === "title" || rule.field === "both") haystacks.push(title);
   if (rule.field === "description" || rule.field === "both") haystacks.push(description);

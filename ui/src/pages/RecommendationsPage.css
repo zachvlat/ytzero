@@ -92,3 +92,52 @@
 @media (max-width: 420px) {
   .recommendations-inline-error .ui-alert__copy > div { align-items: flex-start; flex-direction: column; }
 }
+
+.keyword-chip { cursor: default; }
+.keyword-chip__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.keyword-chip__x:hover { background: rgba(0, 0, 0, 0.32); }
+.keyword-add-form { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+.keyword-add-input {
+  width: 180px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--chip);
+  color: var(--text);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.keyword-add-input:focus-visible,
+.keyword-chip__x:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 1px; }
+.keyword-add-input::placeholder { color: var(--text-2); }
+.keyword-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--chip);
+  color: var(--text);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.keyword-add-btn:hover { background: var(--chip-hover); }

@@ -87,14 +87,30 @@ async function download(url: string): Promise<Row | null> {
   const temporaryPath = `${path}.${randomUUID()}.tmp`;
   const now = Date.now();
   try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        Referer: "https://www.youtube.com/",
-      },
-      signal: AbortSignal.timeout(15_000),
-    });
+    const signal = AbortSignal.timeout(15_000);
+    let target = url;
+    let res: Response;
+    for (let hops = 0; ; hops++) {
+      res = await fetch(target, {
+        redirect: "manual",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+          Referer: "https://www.youtube.com/",
+        },
+        signal,
+      });
+      if (res.status < 300 || res.status >= 400) break;
+      await res.body?.cancel().catch(() => {});
+      const location = res.headers.get("location");
+      const next = location ? new URL(location, target).toString() : null;
+      // Every hop must stay on the allow-list, or an open redirect turns into a request to internal hosts.
+      if (!next || hops >= 2 || !isAllowedRemoteImageUrl(next)) {
+        await failed(url, path, now);
+        return null;
+      }
+      target = next;
+    }
     if (!res.ok) {
       await failed(url, path, now);
       return null;
