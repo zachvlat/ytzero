@@ -161,7 +161,7 @@ export default function RestorePage({ showToast }: { showToast: (message: string
       <SettingsSection title={t("Profiles")}>
         <div className="restore-options-grid">{options?.profiles.map((profile) => <Checkbox key={profile.id} label={profile.name} description={profile.isChild ? t("Child profile") : t("Profile")} checked={profiles.includes(profile.id)} onChange={() => setProfiles(toggle(profiles, profile.id))} />)}</div>
       </SettingsSection>
-      <Alert variant="info" title={t("Downloaded media is not included")}>{t("For exact disaster recovery, stop YT Zero and copy the complete data/ directory.")} <a href="https://github.com/Pelski/ytzero/wiki/Backup-and-Updates" target="_blank" rel="noreferrer">{t("Read the backup guide")}</a>.</Alert>
+      <Alert variant="info" title={t("Downloaded media is not included")}>{t("For exact disaster recovery, stop YT Zero and copy the complete data/ directory.")} <a href="https://github.com/Pelski/ytzero" target="_blank" rel="noreferrer">{t("Read the backup guide")}</a>.</Alert>
       <Inline justify="end"><Button variant="primary" leadingIcon={busy ? <LoaderCircle className="spin" /> : <Download />} disabled={busy || profiles.length === 0 || sections.length === 0} onClick={exportArchive}>{busy ? t("Creating backup…") : t("Download backup")}</Button></Inline>
     </Stack>}
 

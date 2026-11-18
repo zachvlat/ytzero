@@ -27,7 +27,7 @@ export function playbackEndAction(
  */
 export function playlistContinueTarget<T extends Pick<Video, "status" | "watched">>(videos: readonly T[]): T | null {
   for (let index = videos.length - 1; index >= 0; index--) {
-    if (videos[index].watched === 1 || videos[index].status === "archived") return videos[index + 1] ?? null;
+    if (videos[index].watched === 1) return videos[index + 1] ?? null;
   }
   return null;
 }

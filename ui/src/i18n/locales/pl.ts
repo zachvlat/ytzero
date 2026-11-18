@@ -5,13 +5,11 @@ import { surfaceMessages } from "./surfaceMessages";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { feedBuilderMessages } from "./feedBuilder";
-import { tvPairingMessages } from "./tvPairing";
 export const pl: Locale = {
   messages: {
     ...surfaceMessages.pl,
     ...clusterMessages.pl,
     ...notificationMessages.pl,
-    ...tvPairingMessages.pl,
     ...feedBuilderMessages.pl,
     navToday: "Główna",
     navSocial: "Social",

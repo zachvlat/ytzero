@@ -22,7 +22,8 @@ describe("cross-database schema migrations", () => {
     const database = new AsyncDatabaseClient("sqlite", ":memory:");
     await database.exec("CREATE TABLE users (id INTEGER PRIMARY KEY)");
     await database.exec("CREATE TABLE user_channels (user_id INTEGER, channel_id TEXT)");
-    await database.exec("CREATE TABLE user_videos (user_id INTEGER, video_id TEXT)");
+    await database.exec("CREATE TABLE user_videos (user_id INTEGER, video_id TEXT, status TEXT)");
+    await database.exec("INSERT INTO user_videos VALUES (1, 'archived-video', 'archived')");
     await database.exec("CREATE TABLE user_playlist_videos (playlist_id INTEGER, video_id TEXT, added_at TEXT)");
     await database.exec("CREATE TABLE user_playlists (id INTEGER PRIMARY KEY)");
     await database.exec("CREATE TABLE user_followed_playlists (user_id INTEGER, playlist_id TEXT, PRIMARY KEY (user_id, playlist_id))");
@@ -30,14 +31,15 @@ describe("cross-database schema migrations", () => {
     await database.exec("CREATE TABLE downloads (video_id TEXT PRIMARY KEY)");
     await database.exec("INSERT INTO user_playlist_videos VALUES (1, 'later', '2026-01-02'), (1, 'earlier', '2026-01-01')");
 
-    expect(await applyDatabaseMigrations(database)).toBe(117);
-    expect(await applyDatabaseMigrations(database)).toBe(117);
+    expect(await applyDatabaseMigrations(database)).toBe(118);
+    expect(await applyDatabaseMigrations(database)).toBe(118);
     expect((await database.prepare("PRAGMA table_info(auth_sessions)").all() as Array<{ name: string }>).some((column) => column.name === "permission_group_uuid")).toBe(true);
 
     const columns = await database.prepare('PRAGMA table_info("user_channels")').all<{ name: string }>();
     expect(columns.some((column) => column.name === "shorts_feed_visibility")).toBe(true);
     const videoColumns = await database.prepare('PRAGMA table_info("user_videos")').all<{ name: string }>();
     expect(videoColumns.some((column) => column.name === "playback_context_json")).toBe(true);
+    expect(await database.prepare("SELECT status FROM user_videos WHERE video_id='archived-video'").get<{ status: string }>()).toEqual({ status: "inbox" });
     const catalogColumns = await database.prepare('PRAGMA table_info("videos")').all<{ name: string }>();
     expect(catalogColumns.some((column) => column.name === "is_unavailable")).toBe(true);
     expect(catalogColumns.some((column) => column.name === "availability_checked_at")).toBe(true);
@@ -104,6 +106,7 @@ describe("cross-database schema migrations", () => {
     await database.exec("CREATE TABLE downloads (video_id TEXT PRIMARY KEY)");
     await database.exec("CREATE TABLE user_playlists (id INTEGER PRIMARY KEY)");
     await database.exec("CREATE TABLE user_followed_playlists (user_id INTEGER, playlist_id TEXT, PRIMARY KEY (user_id, playlist_id))");
+    await database.exec("CREATE TABLE user_videos (user_id INTEGER, video_id TEXT, status TEXT)");
     await database.exec("CREATE TABLE tube_archivist_watch_outbox (video_id TEXT PRIMARY KEY)");
     await database.exec("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)");
     for (const migration of DATABASE_MIGRATIONS.filter((item) => item.version < 108)) {
@@ -111,7 +114,7 @@ describe("cross-database schema migrations", () => {
         .run(migration.version, migration.name, "2026-09-03T00:00:00.000Z");
     }
 
-    expect(await applyDatabaseMigrations(database)).toBe(117);
+    expect(await applyDatabaseMigrations(database)).toBe(118);
     const columns = await database.prepare('PRAGMA table_info("downloads")').all<{ name: string }>();
     for (const name of ["progress_percent", "progress_total_bytes", "progress_speed", "worker_id", "worker_heartbeat_at_ms"]) {
       expect(columns.some((column) => column.name === name)).toBe(true);

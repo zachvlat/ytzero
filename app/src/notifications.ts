@@ -1,6 +1,6 @@
 import { database } from "./database";
 import { publishAppEvent } from "./appEvents";
-import { notificationEnabled } from "./notificationPreferences";
+import { NOTIFICATION_CATEGORY_DEFAULTS, notificationEnabled, type NotificationCategory } from "./notificationPreferences";
 import { deliverNotificationInBackground } from "./notificationDelivery";
 import type { AutoTagMatch } from "./autotags";
 
@@ -8,6 +8,40 @@ const insertNotification = database.prepare(`
   INSERT OR IGNORE INTO notifications (user_id, kind, dedupe_key, payload, target)
   VALUES (?, ?, ?, ?, ?)
 `);
+
+const NOTIFICATION_BATCH_SIZE = 400;
+
+function chunks<T>(items: T[], size = NOTIFICATION_BATCH_SIZE): T[][] {
+  const result: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += size) result.push(items.slice(offset, offset + size));
+  return result;
+}
+
+/** Same preference precedence as notificationEnabled(), batched over profiles. */
+async function enabledUserIds(userIds: number[], kind: string, sourceId: string): Promise<Set<number>> {
+  const enabled = new Set<number>();
+  for (const batch of chunks(userIds)) {
+    const placeholders = batch.map(() => "?").join(",");
+    const rows = await database.prepare(`
+      SELECT user_id, kind, source_id, enabled FROM notification_preferences
+      WHERE user_id IN (${placeholders}) AND (
+        (kind='*' AND source_id='') OR (kind=? AND source_id='') OR (kind=? AND source_id=?)
+      )
+    `).all<{ user_id: number; kind: string; source_id: string; enabled: number }>(...batch, kind, kind, sourceId);
+    const byUser = new Map<number, Map<string, boolean>>();
+    for (const row of rows) {
+      const values = byUser.get(row.user_id) ?? new Map<string, boolean>();
+      values.set(`${row.kind}:${row.source_id}`, row.enabled === 1);
+      byUser.set(row.user_id, values);
+    }
+    for (const userId of batch) {
+      const values = byUser.get(userId);
+      if (values?.get("*:") === false) continue;
+      if (values?.get(`${kind}:${sourceId}`) ?? values?.get(`${kind}:`) ?? (NOTIFICATION_CATEGORY_DEFAULTS[kind as NotificationCategory] ?? true)) enabled.add(userId);
+    }
+  }
+  return enabled;
+}
 
 export async function createNotification(userId: number, kind: string, dedupeKey: string, payload: Record<string, unknown>, target: string, sourceId = ""): Promise<boolean> {
   if (!await notificationEnabled(userId, kind, sourceId)) return false;
@@ -60,10 +94,19 @@ export async function notifyChannelVideos(channelId: string, videoIds: string[])
   if (followers.length === 0) return 0;
   const channel = await database.prepare("SELECT COALESCE(NULLIF(custom_title, ''), title) AS title, thumbnail FROM channels WHERE channel_id=?")
     .get<{ title: string; thumbnail: string }>(channelId);
-  const videoQuery = database.prepare("SELECT video_id,title,thumbnail FROM videos WHERE video_id=? AND channel_id=?");
-  let created = 0;
+  const videos = new Map<string, { video_id: string; title: string; thumbnail: string }>();
+  for (const batch of chunks(videoIds)) {
+    const placeholders = batch.map(() => "?").join(",");
+    const rows = await database.prepare(`SELECT video_id,title,thumbnail FROM videos WHERE channel_id=? AND video_id IN (${placeholders})`)
+      .all<{ video_id: string; title: string; thumbnail: string }>(channelId, ...batch);
+    for (const video of rows) videos.set(video.video_id, video);
+  }
+  const enabled = await enabledUserIds(followers.map((row) => row.user_id), "channel_video", channelId);
+  if (enabled.size === 0) return 0;
+  const kind = "channel_video";
+  const rows: Array<{ userId: number; dedupeKey: string; payload: Record<string, unknown>; target: string }> = [];
   for (const videoId of videoIds) {
-    const video = await videoQuery.get<{ video_id: string; title: string; thumbnail: string }>(videoId, channelId);
+    const video = videos.get(videoId);
     if (!video) continue;
     const payload = {
       videoId: video.video_id,
@@ -73,11 +116,30 @@ export async function notifyChannelVideos(channelId: string, videoIds: string[])
       channelTitle: channel?.title || "",
       channelThumbnail: channel?.thumbnail || "",
     };
-    for (const follower of followers) {
-      if (await createNotification(follower.user_id, "channel_video", `channel_video:${channelId}:${video.video_id}`, payload, `/watch/${video.video_id}`, channelId)) created++;
-    }
+    const dedupeKey = `channel_video:${channelId}:${video.video_id}`;
+    const target = `/watch/${video.video_id}`;
+    for (const userId of enabled) rows.push({ userId, dedupeKey, payload, target });
   }
-  return created;
+  const deliveryByKey = new Map(rows.map((row) => [row.dedupeKey, { payload: row.payload, target: row.target }]));
+  const inserted: Array<{ user_id: number; dedupe_key: string }> = [];
+  for (const batch of chunks(rows)) {
+    const results = await database.prepare(`
+      INSERT INTO notifications (user_id, kind, dedupe_key, payload, target)
+      VALUES ${batch.map(() => "(?, ?, ?, ?, ?)").join(",")}
+      ON CONFLICT DO NOTHING
+      RETURNING user_id, dedupe_key
+    `).all<{ user_id: number; dedupe_key: string }>(
+      ...batch.flatMap((row) => [row.userId, kind, row.dedupeKey, JSON.stringify(row.payload), row.target]),
+    );
+    inserted.push(...results);
+  }
+  if (inserted.length === 0) return 0;
+  publishAppEvent("notifications");
+  for (const row of inserted) {
+    const delivery = deliveryByKey.get(row.dedupe_key);
+    if (delivery) deliverNotificationInBackground(row.user_id, kind, delivery.payload, delivery.target);
+  }
+  return inserted.length;
 }
 
 export async function notifyDownloadFailed(videoId: string, error: string): Promise<number> {

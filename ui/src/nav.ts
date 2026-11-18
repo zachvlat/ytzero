@@ -1,4 +1,4 @@
-import { Archive, ArrowDownToLine, Bookmark, Clapperboard, Clock, Compass, HeartPulse, History, Home, ListVideo, Radio, Settings, ThumbsUp, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowDownToLine, Bookmark, Clapperboard, Clock, Compass, HeartPulse, History, Home, ListVideo, Radio, Settings, ThumbsUp, UsersRound, type LucideIcon } from "lucide-react";
 import type { I18nKey } from "./i18n";
 
 export type NavItem = { to: string; labelKey: I18nKey; icon: LucideIcon; end?: boolean };
@@ -15,7 +15,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/liked", labelKey: "navLiked", icon: ThumbsUp },
   { to: "/history", labelKey: "navHistory", icon: History },
   { to: "/bookmarks", labelKey: "navBookmarks", icon: Bookmark },
-  { to: "/archive", labelKey: "navArchive", icon: Archive },
   { to: "/insights", labelKey: "navInsights", icon: HeartPulse },
   { to: "/settings", labelKey: "navSettings", icon: Settings },
 ];

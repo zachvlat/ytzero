@@ -109,18 +109,13 @@ export async function snapshotUserVideoState(uid: number, videoIds: string[]): P
 
 // Cleanup's "watched" is bookkeeping, not a real watch — no history row, no
 // discovery signal (see applyCleanupAction), unlike the single-card watched button.
-export async function applyCleanupAction(uid: number, videoIds: string[], action: "archive" | "watched") {
+export async function applyCleanupAction(uid: number, videoIds: string[]) {
   const run = database.transaction(async (ids: string[]) => {
     for (const batch of chunks(ids)) {
-      const rowSql = action === "archive" ? "(?, ?, 'archived')" : "(?, ?, 'archived', 1)";
-      const columns = action === "archive" ? "user_id, video_id, status" : "user_id, video_id, status, watched";
-      const update = action === "archive"
-        ? "status = 'archived', bucket = NULL, show_from = NULL, playback_context_json = NULL"
-        : "status = 'archived', watched = 1, bucket = NULL, show_from = NULL, playback_context_json = NULL";
       const params = batch.flatMap((id) => [uid, id]);
       await database.prepare(
-        `INSERT INTO user_videos (${columns}) VALUES ${batch.map(() => rowSql).join(",")}
-         ON CONFLICT(user_id, video_id) DO UPDATE SET ${update}`
+        `INSERT INTO user_videos (user_id, video_id, status, watched) VALUES ${batch.map(() => "(?, ?, 'inbox', 1)").join(",")}
+         ON CONFLICT(user_id, video_id) DO UPDATE SET status = 'inbox', watched = 1, bucket = NULL, show_from = NULL, playback_context_json = NULL`
       ).run(...params);
     }
   });

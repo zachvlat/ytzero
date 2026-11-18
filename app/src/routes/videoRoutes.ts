@@ -150,15 +150,6 @@ api.get("/watchlist", async (c) => {
   return c.json({ videos: await attachTags(uid, rows) });
 });
 
-api.get("/archive", async (c) => {
-  const uid = currentUserId(c);
-  const page = Math.max(0, Number(c.req.query("page") ?? 0));
-  const rows = await database
-    .prepare(`${videoSelect(uid)} WHERE uv.status = 'archived' AND ${shortsUiVisibilitySql(uid)} ORDER BY COALESCE(v.published_at, v.created_at) DESC LIMIT 60 OFFSET ?`)
-    .all(page * 60) as VideoRow[];
-  return c.json({ videos: await attachTags(uid, rows), page });
-});
-
 // External ("orphan") videos pulled in for one-off watching: anything that
 // belongs to an external channel (not followed, brought in just to watch).
 // Watched ones (with a saved position) float to the top.
@@ -439,12 +430,12 @@ api.get("/videos/:id", async (c) => {
 
   const need = () => RELATED_TARGET - related.length;
 
-  // Step 1 — same tags (own + channel-inherited), non-archived, most recent
+  // Step 1 — same tags (own + channel-inherited), most recent
   if (tagRows.length > 0) {
     const tagIds = tagRows.map((t) => t.tag_id);
     const ph = tagIds.map(() => "?").join(",");
     fill(await database.prepare(
-      `${videoSelect(uid)} WHERE v.video_id != ? AND v.published_at IS NOT NULL AND v.published_at != '' AND COALESCE(uv.status, 'inbox') != 'archived' AND COALESCE(uv.watched, 0) != 1 AND v.is_short = 0 AND COALESCE(v.is_unavailable, 0) = 0 AND ${ownedByProfile}
+      `${videoSelect(uid)} WHERE v.video_id != ? AND v.published_at IS NOT NULL AND v.published_at != '' AND COALESCE(uv.watched, 0) != 1 AND v.is_short = 0 AND COALESCE(v.is_unavailable, 0) = 0 AND ${ownedByProfile}
        AND (EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.video_id AND vt.tag_id IN (${ph}))
          OR EXISTS (SELECT 1 FROM channel_tags ct WHERE ct.channel_id = v.channel_id AND ct.tag_id IN (${ph})))
        ORDER BY COALESCE(v.published_at, v.created_at) DESC LIMIT ?`
@@ -455,7 +446,7 @@ api.get("/videos/:id", async (c) => {
   if (need() > 0) {
     const seenPh = [...seen].map(() => "?").join(",");
     fill(await database.prepare(
-      `${videoSelect(uid)} WHERE v.channel_id = ? AND v.video_id NOT IN (${seenPh}) AND v.published_at IS NOT NULL AND v.published_at != '' AND COALESCE(uv.status, 'inbox') != 'archived' AND COALESCE(uv.watched, 0) != 1 AND v.is_short = 0 AND COALESCE(v.is_unavailable, 0) = 0${row.external === 1 ? "" : ` AND ${ownedByProfile}`}
+      `${videoSelect(uid)} WHERE v.channel_id = ? AND v.video_id NOT IN (${seenPh}) AND v.published_at IS NOT NULL AND v.published_at != '' AND COALESCE(uv.watched, 0) != 1 AND v.is_short = 0 AND COALESCE(v.is_unavailable, 0) = 0${row.external === 1 ? "" : ` AND ${ownedByProfile}`}
        ORDER BY COALESCE(v.published_at, v.created_at) DESC LIMIT ?`
     ).all(row.channel_id, ...seen, need()) as VideoRow[]);
   }
@@ -466,18 +457,18 @@ api.get("/videos/:id", async (c) => {
     const ph = tagIds.map(() => "?").join(",");
     const seenPh = [...seen].map(() => "?").join(",");
     fill(await database.prepare(
-      `${videoSelect(uid)} WHERE v.video_id NOT IN (${seenPh}) AND v.published_at IS NOT NULL AND v.published_at != '' AND COALESCE(uv.status, 'inbox') != 'archived' AND COALESCE(uv.watched, 0) != 1 AND v.is_short = 0 AND COALESCE(v.is_unavailable, 0) = 0 AND ${ownedByProfile}
+      `${videoSelect(uid)} WHERE v.video_id NOT IN (${seenPh}) AND v.published_at IS NOT NULL AND v.published_at != '' AND COALESCE(uv.watched, 0) != 1 AND v.is_short = 0 AND COALESCE(v.is_unavailable, 0) = 0 AND ${ownedByProfile}
        AND (EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.video_id AND vt.tag_id IN (${ph}))
          OR EXISTS (SELECT 1 FROM channel_tags ct WHERE ct.channel_id = v.channel_id AND ct.tag_id IN (${ph})))
        ORDER BY COALESCE(v.published_at, v.created_at) DESC LIMIT ?`
     ).all(...seen, ...tagIds, ...tagIds, need()) as VideoRow[]);
   }
 
-  // Step 4 — any recent non-archived non-short inbox/queued videos
+  // Step 4 — any recent non-short inbox/queued videos
   if (need() > 0) {
     const seenPh = [...seen].map(() => "?").join(",");
     fill(await database.prepare(
-      `${videoSelect(uid)} WHERE v.video_id NOT IN (${seenPh}) AND v.published_at IS NOT NULL AND v.published_at != '' AND COALESCE(uv.status, 'inbox') != 'archived' AND COALESCE(uv.watched, 0) != 1 AND v.is_short = 0 AND COALESCE(v.is_unavailable, 0) = 0 AND ${ownedByProfile}
+      `${videoSelect(uid)} WHERE v.video_id NOT IN (${seenPh}) AND v.published_at IS NOT NULL AND v.published_at != '' AND COALESCE(uv.watched, 0) != 1 AND v.is_short = 0 AND COALESCE(v.is_unavailable, 0) = 0 AND ${ownedByProfile}
        ORDER BY COALESCE(v.published_at, v.created_at) DESC LIMIT ?`
     ).all(...seen, need()) as VideoRow[]);
   }

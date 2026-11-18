@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { isContinuousPlaylistQueue, playbackEndAction, playlistContinueTarget, videosInPlaylistOrder } from "./playlistPlayback";
 import type { PlaybackQueueContext } from "./playbackQueue";
 
-const item = (id: string, watched: number | null = null, status: "inbox" | "archived" = "inbox") => ({ id, watched, status });
+const item = (id: string, watched: number | null = null, status: "inbox" | "queued" = "inbox") => ({ id, watched, status });
 const userPlaylist = { version: 1, kind: "user-playlist", playlistUuid: "playlist", sort: "added-newest" } satisfies PlaybackQueueContext;
 const channelPlaylist = { version: 1, kind: "channel-playlist", playlistId: "PL1234567890", sort: "oldest" } satisfies PlaybackQueueContext;
 const feed = { version: 1, kind: "feed", tags: [], showAll: false, sort: "published" } satisfies PlaybackQueueContext;
@@ -28,11 +28,6 @@ describe("playlist playback", () => {
 
   test("continues after the furthest watched item instead of the first unwatched gap", () => {
     const videos = [item("watched-1", 1), item("skipped"), item("watched-2", 1), item("next")];
-    expect(playlistContinueTarget(videos)?.id).toBe("next");
-  });
-
-  test("moves past explicitly skipped videos", () => {
-    const videos = [item("done", 1, "archived"), item("rejected", null, "archived"), item("next")];
     expect(playlistContinueTarget(videos)?.id).toBe("next");
   });
 

@@ -5,6 +5,7 @@ import { log } from "./logger";
 
 export const DOWNLOAD_MANIFEST_SUFFIX = ".ytz.json";
 const MEDIA_EXTENSIONS = new Set([".mp4", ".mkv", ".webm", ".mov", ".m4v"]);
+const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 interface DownloadManifest {
   schemaVersion: 1;
@@ -134,18 +135,19 @@ export async function recoverDownloadsFromDisk(downloadsDir: string, onRecovered
     }
   }
 
+  const legacyIds = [...byId.keys()].filter((id) => YOUTUBE_VIDEO_ID.test(id));
   const candidatesById = new Map<string, string[]>();
   for (const filePath of allFiles) {
     if (claimedMedia.has(filePath) || !MEDIA_EXTENSIONS.has(extname(filePath).toLowerCase())) continue;
     const relativePath = relative(root, filePath);
-    const matches = rows.filter((row) => /^[A-Za-z0-9_-]{11}$/.test(row.video_id) && relativePath.includes(row.video_id));
+    const matches = legacyIds.filter((id) => relativePath.includes(id));
     if (matches.length !== 1) {
-      if (matches.length > 1) log.warn("downloads.filename_recovery_ambiguous", { path: filePath, videoIds: matches.map((row) => row.video_id) });
+      if (matches.length > 1) log.warn("downloads.filename_recovery_ambiguous", { path: filePath, videoIds: matches });
       continue;
     }
-    const paths = candidatesById.get(matches[0].video_id) ?? [];
+    const paths = candidatesById.get(matches[0]) ?? [];
     paths.push(filePath);
-    candidatesById.set(matches[0].video_id, paths);
+    candidatesById.set(matches[0], paths);
   }
 
   for (const [videoId, paths] of candidatesById) {

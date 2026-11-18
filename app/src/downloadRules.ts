@@ -188,11 +188,16 @@ export async function deleteDownloadRule(userId: number, id: number): Promise<bo
   return (await database.prepare("DELETE FROM download_rules WHERE id=? AND user_id=?").run(id, userId)).changes > 0;
 }
 
-function parseDurationSeconds(raw: string | null): number | null {
-  if (!raw) return null;
-  const parts = raw.split(":").map(Number);
-  if (!parts.length || parts.some((part) => !Number.isFinite(part))) return null;
-  return parts.reduce((total, part) => total * 60 + part, 0);
+export function parseDurationSeconds(duration: string | null): number | null {
+  if (!duration) return null;
+  const parts = duration.trim().split(":");
+  if (parts.length < 2 || parts.length > 3) return null;
+  const values = parts.map(Number);
+  if (values.some((value) => !Number.isInteger(value) || value < 0)) return null;
+  // A duration such as 99:10 is valid (99 minutes); only seconds and the
+  // middle segment of an hour-based duration are conventional 0-59 fields.
+  if (values.at(-1)! >= 60 || (values.length === 3 && values[1] >= 60)) return null;
+  return values.reduce((total, value) => total * 60 + value, 0);
 }
 
 function matchesKeywords(rule: DownloadRuleInput, title: string, description: string): boolean {
@@ -264,7 +269,7 @@ export async function previewDownloadRule(userId: number, value: Partial<Downloa
       AND NOT EXISTS (
         SELECT 1 FROM user_videos rule_user_video
         WHERE rule_user_video.user_id=? AND rule_user_video.video_id=v.video_id
-          AND (rule_user_video.watched=1 OR rule_user_video.status='archived')
+          AND rule_user_video.watched=1
       )
     ORDER BY COALESCE(v.published_at, v.created_at) DESC
     LIMIT 2001

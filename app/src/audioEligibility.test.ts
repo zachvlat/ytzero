@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { audioVideoIsEligible, liveAudioVideoIsEligible } from "./audioEligibility";
 
 describe("audio playback eligibility", () => {
-  test("allows regular and archived videos", () => {
+  test("allows regular and completed live-stream videos", () => {
     expect(audioVideoIsEligible({ live_status: "none", is_private: 0, members_only: 0 })).toBe(true);
     expect(audioVideoIsEligible({ live_status: "was_live", is_private: 0, members_only: 0 })).toBe(true);
   });

@@ -107,9 +107,7 @@ export default function BookmarksPage() {
                 onPlay={() => navigate(target)}
                 onChanged={() => {}}
                 readOnly
-                allowReject={false}
                 allowMarkWatched={false}
-                showWatchProgress
                 searchResultLayout
               />
               <div className="bookmark-card__notes">

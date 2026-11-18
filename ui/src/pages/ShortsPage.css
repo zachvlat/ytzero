@@ -24,11 +24,6 @@
   background: var(--surface);
   transition: opacity 0.32s ease, transform 0.32s ease;
 }
-.short-card--leaving {
-  opacity: 0;
-  transform: scale(0.92);
-  pointer-events: none;
-}
 .short-card-thumb {
   position: absolute;
   inset: 0;

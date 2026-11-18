@@ -299,22 +299,6 @@ describe("portable backup classification and restore", () => {
     expect(restored.watch_duration).toBe(600);
   });
 
-  test("native playback capabilities and their parent sessions are excluded from portable backups", async () => {
-    const { mediaTickets } = await import("./nativePlayback");
-    const sessionToken = "native-playback-session-must-not-be-portable";
-    const ticket = mediaTickets.issue({ userId: 1, videoId: "portable001", sessionToken, kind: "file" });
-    try {
-      const profile = (await backup.backupOptions()).profiles[0];
-      const zip = await backup.createPortableBackup({ preset: "full", profiles: [profile.id] });
-      const content = [...backup.readPortableZip(zip).values()].map((value) => decoder.decode(value)).join("\n");
-      expect(content).not.toContain(ticket);
-      expect(content).not.toContain(sessionToken);
-      expect(content).not.toContain("media_ticket");
-    } finally {
-      mediaTickets.revoke(ticket);
-    }
-  });
-
   test("round-trips profile bookmarks idempotently and excludes them from setup backups", async () => {
     const profile = (await backup.backupOptions()).profiles[0];
     const bookmarkUuid = crypto.randomUUID();
@@ -509,7 +493,7 @@ describe("portable backup classification and restore", () => {
     setUserSetting(1, "keep_watched_in_feed", "1");
     setUserSetting(1, "youtube_title_language", "fr");
     setUserSetting(1, "video_card_actions", "delay");
-    const cardActionButtons = '{"version":1,"actions":[{"id":"playlist","hidden":false},{"id":"schedule","hidden":true},{"id":"download","hidden":false},{"id":"archive","hidden":false},{"id":"watched","hidden":false},{"id":"restore","hidden":false},{"id":"remove","hidden":false}]}';
+    const cardActionButtons = '{"version":1,"actions":[{"id":"playlist","hidden":false},{"id":"schedule","hidden":true},{"id":"download","hidden":false},{"id":"watched","hidden":false},{"id":"remove","hidden":false}]}';
     setUserSetting(1, "video_card_action_buttons", cardActionButtons);
     const cardSwipeDevices = '{"version":1,"devices":["desktop","tablet"]}';
     setUserSetting(1, "video_card_swipe_devices", cardSwipeDevices);

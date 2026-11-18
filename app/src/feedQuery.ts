@@ -75,7 +75,7 @@ export function feedVisibilityWhere(
     where.push("COALESCE(uv.status, 'inbox') = ?");
     params.push(status);
   }
-  // Watched state is independent from inbox/archive state. By default the main
+  // Watched state is independent from inbox state. By default the main
   // feed remains an inbox of things left to watch; profiles that prefer a full
   // chronological view can keep completed inbox items visible.
   if (opts.skipWatched || !keepsWatchedInFeed(uid)) {

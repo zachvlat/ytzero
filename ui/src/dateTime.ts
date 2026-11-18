@@ -1,3 +1,5 @@
+export { addCalendarDays } from "../../shared/calendarDays";
+
 export const DEFAULT_TIME_ZONE = "UTC";
 
 export function normalizeTimeZone(value: unknown): string {
@@ -26,12 +28,6 @@ export function appDayKey(value: string | number | Date, timeZone: string): stri
   }).formatToParts(parseAppTimestamp(value));
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
-}
-
-export function addCalendarDays(day: string, offsetDays: number): string {
-  const date = new Date(`${day}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
 }
 
 export function addCalendarYears(day: string, offsetYears: number): string {

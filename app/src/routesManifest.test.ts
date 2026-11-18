@@ -70,22 +70,14 @@ describe("HTTP route manifest", () => {
       "GET /public-shares", "PUT /public-shares/policy", "POST /public-shares",
       "PATCH /public-shares/:id", "POST /public-shares/:id/rotate", "DELETE /public-shares/:id",
     ];
-    const deviceAuthRoutes = [
-      "POST /auth/device/code",
-      "GET /auth/device/verification",
-      "POST /auth/device/authorize",
-      "POST /auth/device/token",
-    ];
     const childDownloadRequestRoutes = [
       "POST /child/download-request",
       "GET /child/download-request",
       "GET /child/download-requests",
       "POST /child/download-requests/:id/resolve",
     ];
-    const nativePlaybackRoutes = ["POST", "PUT", "DELETE"].map((method) => `${method} /videos/:id/playback-ticket`);
-    for (const route of nativePlaybackRoutes) expect(routes).toContain(route);
     expect(routes).toContain("PUT /channel-playlists/:id/sort");
-    expect(routes).toHaveLength(281);
+    expect(routes).toHaveLength(268);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);
@@ -106,13 +98,12 @@ describe("HTTP route manifest", () => {
     for (const route of notificationPreferenceRoutes) expect(routes).toContain(route);
     for (const route of accessControlRoutes) expect(routes).toContain(route);
     for (const route of publicShareManagementRoutes) expect(routes).toContain(route);
-    for (const route of deviceAuthRoutes) expect(routes).toContain(route);
     for (const route of childDownloadRequestRoutes) expect(routes).toContain(route);
     expect(routes).toContain("GET /plugins/tubearchivist/config");
     expect(routes).toContain("POST /plugins/tubearchivist/sync");
-    const legacyRoutes = routes.filter((route) => route !== "GET /videos/:id/live-hls/:file" && route !== "PUT /channel-playlists/:id/sort" && route !== directHlsRoute && !nativePlaybackRoutes.includes(route) && route !== transcriptRoute && route !== playbackAdjacentRoute && route !== liveAudioRoute && route !== vodAudioRoute && route !== retryAudioRoute && route !== directStreamRoute && route !== ytdlpConfigRoute && route !== ytdlpUpdateRoute && route !== importVideoRoute && route !== sessionPlaylistRoute && route !== clearVideoBookmarksRoute && route !== liveChatRoute && route !== clusterStatusRoute && route !== followedPlaylistOfflinePolicyRoute && !feedBuilderRoutes.includes(route) && !accessControlRoutes.includes(route) && !notificationPreferenceRoutes.includes(route) && !publicShareManagementRoutes.includes(route) && !deviceAuthRoutes.includes(route) && !childDownloadRequestRoutes.includes(route));
+    const legacyRoutes = routes.filter((route) => route !== "GET /videos/:id/live-hls/:file" && route !== "PUT /channel-playlists/:id/sort" && route !== directHlsRoute && route !== transcriptRoute && route !== playbackAdjacentRoute && route !== liveAudioRoute && route !== vodAudioRoute && route !== retryAudioRoute && route !== directStreamRoute && route !== ytdlpConfigRoute && route !== ytdlpUpdateRoute && route !== importVideoRoute && route !== sessionPlaylistRoute && route !== clearVideoBookmarksRoute && route !== liveChatRoute && route !== clusterStatusRoute && route !== followedPlaylistOfflinePolicyRoute && !feedBuilderRoutes.includes(route) && !accessControlRoutes.includes(route) && !notificationPreferenceRoutes.includes(route) && !publicShareManagementRoutes.includes(route) && !childDownloadRequestRoutes.includes(route));
     expect(createHash("sha256").update(legacyRoutes.join("\n")).digest("hex"))
-      .toBe("80c5a76e8b9e73067474352689dee5912762cbd8933feb23ceb68592f592158b");
+      .toBe("046d7b0c1bec5098d449c897a75c7d973d25bcda18ecab14a6cd16df65ea1724");
   });
 
   test("does not register duplicate method/path pairs", () => {

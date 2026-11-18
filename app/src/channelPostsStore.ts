@@ -1,4 +1,5 @@
 import { database } from "./database";
+import { beginMutation } from "./maintenance";
 import { fetchChannelPosts, type ChannelPost, type ChannelPostAttachment, type ChannelPostImage } from "./youtubePosts";
 
 interface ChannelPostRow {
@@ -124,6 +125,8 @@ async function recordFailure(channelId: string, attemptedAt: string, error: unkn
 }
 
 export async function syncChannelPosts(channelId: string, userId?: number): Promise<StoredChannelPosts> {
+  const releaseMutation = beginMutation();
+  if (!releaseMutation) throw new Error("maintenance in progress");
   const attemptedAt = new Date().toISOString();
   try {
     const fetched = await fetchChannelPosts(channelId, true, userId);
@@ -132,6 +135,8 @@ export async function syncChannelPosts(channelId: string, userId?: number): Prom
   } catch (error) {
     await recordFailure(channelId, attemptedAt, error);
     throw error;
+  } finally {
+    releaseMutation();
   }
 }
 

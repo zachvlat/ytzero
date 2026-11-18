@@ -21,7 +21,7 @@ import { sessionPlayQueueContext, useSessionPlayQueue } from "../sessionPlayQueu
 import { effectivePlaybackQueue } from "../sessionPlayQueuePlayback";
 import { isContinuousPlaylistQueue, playbackEndAction } from "../playlistPlayback";
 import { restoreSidebarVisibility } from "../app-shell/sidebarVisibility";
-import { canAutoArchiveVideo, isMissingVideoError, loadYouTubeApi, resolveShareTimestamp, resolveWatchPlayerTarget, resolveWatchRoutePreview } from "./watchRuntime";
+import { isMissingVideoError, loadYouTubeApi, resolveShareTimestamp, resolveWatchPlayerTarget, resolveWatchRoutePreview } from "./watchRuntime";
 import { captionPlayerVars, resolveWatchCaptions } from "./watchCaptions";
 import { useWatchTogetherPlayback } from "./useWatchTogetherPlayback";
 import { useYouTubeKeyboardShortcuts, type WatchShortcutKind } from "./useYouTubeKeyboardShortcuts";
@@ -249,12 +249,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const ytWrapRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<WatchPlayerHandle | null>(null);
   const enhancePlayerStateRef = useRef<{ state: EnhancePlayerState; updatedAt: number } | null>(null);
-  const archivedRef = useRef(false);
-  const canAutoArchiveRef = useRef(false);
-  // Auto-archiving on natural playback completion has to respect the same "keep watched videos
-  // in feed" profile setting as the card's own mark-watched action — otherwise finishing a video
-  // in the player would silently defeat the setting the card action already honors.
-  const keepWatchedInFeedRef = useRef(false);
+  const completionMarkedRef = useRef(false);
   const sbSegmentsRef = useRef<SponsorSegment[]>([]);
   const sbPausedRef = useRef(false);
   const disabledSegsRef = useRef<Set<string>>(new Set());
@@ -337,8 +332,6 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const privateVideoNotice = matchingVideo?.is_private === 1;
   const membersOnlyNotice = matchingVideo?.members_only === 1 && !isChildProfile && !privateVideoNotice;
   const playerTargetId = resolveWatchPlayerTarget(id, video?.video_id, missingVideoId);
-  canAutoArchiveRef.current = canAutoArchiveVideo(video, id);
-  keepWatchedInFeedRef.current = settings?.keep_watched_in_feed === "1";
   const audioModeAvailable = canUseWatchAudioMode({
     childProfile: isChildProfile,
     hasVideo: Boolean(matchingVideo),
@@ -673,7 +666,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     setYoutubeAutoplayBlocked(false);
     setWaitProgress(null);
     setWaitError(null);
-    archivedRef.current = false;
+    completionMarkedRef.current = false;
     window.scrollTo(0, 0);
     api
       .video(id)
@@ -858,7 +851,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
 
   // Create the player (YT iframe or the ref populated by LocalPlayer) and poll
   // progress every second. The poll runs against the shared YT-shaped player
-  // API, so progress saving, auto-archive and SponsorBlock work for both.
+  // API, so progress saving and SponsorBlock work for both.
   useEffect(() => {
     if (!playerTargetId) return;
     const activeVideoId = playerTargetId;
@@ -905,12 +898,11 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
         wasPlaying = true;
         if (!isStream) {
           queueProgressWrite(activeVideoId, position, playerDuration);
-          if (!isIncognitoMode() && canAutoArchiveRef.current && playerDuration > 30 && position / playerDuration >= 0.9 && !archivedRef.current) {
-            archivedRef.current = true;
+          if (!isIncognitoMode() && playerDuration > 30 && position / playerDuration >= 0.9 && !completionMarkedRef.current) {
+            completionMarkedRef.current = true;
             queueProgressWrite(activeVideoId, playerDuration, playerDuration);
             flushProgressWrite(activeVideoId);
             api.complete(activeVideoId).catch(() => {});
-            if (!keepWatchedInFeedRef.current) api.archiveVideo(activeVideoId).catch(() => {});
           }
         }
         if (!watchTogetherTransportLockedRef.current && !sbPausedRef.current) {
@@ -935,7 +927,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     };
 
     const saveCurrentProgress = (keepalive: boolean) => {
-      if (progressRef.current && !archivedRef.current) {
+      if (progressRef.current && !completionMarkedRef.current) {
         const { position, duration } = progressRef.current;
         queueProgressWrite(activeVideoId, position, duration);
         flushProgressWrite(activeVideoId, keepalive);
@@ -969,7 +961,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     if (playerKind === "local" || playerKind === "stream" || playerKind === "direct" || audioActive) {
       // LocalPlayer renders the <video> itself and fills playerRef via its ref.
       // In "stream" mode the duration is unknown, so poll() self-skips progress
-      // saving and auto-archive — SponsorBlock/resume just wait for the download.
+      // saving — SponsorBlock/resume just wait for the download.
       const pollInterval = setInterval(poll, 1_000);
       attachPageLifecycle();
       return () => {

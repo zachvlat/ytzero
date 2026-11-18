@@ -45,8 +45,6 @@ import { registerChannelPlaylistRoutes } from "./routes/channelPlaylistRoutes";
 import { playlistChannelSyncIsDisabled, registerChannelRoutes } from "./routes/channelRoutes";
 import { registerVideoActionRoutes } from "./routes/videoActionRoutes";
 import { registerPlaybackRoutes } from "./routes/playbackRoutes";
-import { registerNativePlaybackRoutes } from "./routes/nativePlaybackRoutes";
-import { serveMediaTicket } from "./nativePlayback";
 import { registerVideoRoutes } from "./routes/videoRoutes";
 import { registerTranscriptRoutes } from "./routes/transcriptRoutes";
 import {
@@ -186,8 +184,8 @@ function externalPermissionGroupUuid(c: any): string | undefined {
   return c.get("permissionGroupUuid");
 }
 
-// Falls back to the cookie-selected profile (or the first profile). Used by the
-// 'none' method and by any session whose scope allows free profile switching.
+// Only the 'none' method (no session) uses the unsigned profile cookie as its
+// identity. Authenticated sessions resolve their user from the session row.
 async function profileFromCookie(c: any): Promise<number> {
   const raw = Number(parseCookies(c.req.header("cookie"))[PROFILE_COOKIE]);
   const valid = Number.isInteger(raw) && raw > 0 && await userExists.get(raw);
@@ -197,23 +195,22 @@ async function profileFromCookie(c: any): Promise<number> {
 /** Re-resolve long-lived request identity instead of trusting middleware state forever. */
 export async function revalidateCurrentRequestUser(c: any, expectedUserId: number): Promise<boolean> {
   const method = authMethod();
-  const bearerValid = await revalidateBearerRequest(c, expectedUserId, profileFromCookie);
+  const bearerValid = await revalidateBearerRequest(c, expectedUserId);
   if (bearerValid !== undefined) return bearerValid;
   if (method === "none") return await profileFromCookie(c) === expectedUserId;
   if (method === "proxy_header") return await resolveProxyUser(c) === expectedUserId;
 
   const session = await validateSession(parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE]);
   if (!session) return false;
-  const userId = session.scope === "account" ? session.user_id ?? await profileFromCookie(c) : session.user_id ?? 0;
+  const userId = session.user_id ?? 0;
   return userId === expectedUserId;
 }
 
 // Resolve the active profile for every API request, honouring the auth method.
 api.use("*", async (c, next) => {
-  if (c.req.query("media_ticket") !== undefined) return serveMediaTicket(c, next);
   const method = authMethod();
   const path = new URL(c.req.url).pathname.replace(/^\/api/, "");
-  const bearerAuth = await authenticateBearerRequest(c, { profileFromCookie, setDelegatedProfileAdmin });
+  const bearerAuth = await authenticateBearerRequest(c, { setDelegatedProfileAdmin });
   if (bearerAuth === "invalid") return c.json({ error: "unauthenticated", method }, 401);
   if (bearerAuth === "authenticated") return next();
 
@@ -239,8 +236,9 @@ api.use("*", async (c, next) => {
   // shared | per_profile | oidc → server-side session
   const session = await validateSession(parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE]);
   if (session) {
-    // The profile chosen via /profiles/switch lives on the session row; the cookie is only a fallback before the first switch.
-    const userId = session.scope === "account" ? session.user_id ?? await profileFromCookie(c) : session.user_id ?? 0;
+    // The profile chosen via /profiles/switch lives on the session row. An
+    // unbound account session stays user 0 — it has no owner powers yet.
+    const userId = session.user_id ?? 0;
     c.set("userId", userId);
     c.set("sessionAdmin", session.is_admin);
     if (session.permission_group_uuid) c.set("permissionGroupUuid", session.permission_group_uuid);
@@ -357,7 +355,6 @@ registerTranscriptRoutes(api, currentUserId);
 
 registerVideoActionRoutes(api, currentUserId);
 registerPlaybackRoutes(api, currentUserId);
-registerNativePlaybackRoutes(api, currentUserId);
 
 registerHistoryRoutes(api, { currentUserId, attachTags });
 registerBookmarkRoutes(api, { currentUserId, attachTags });

@@ -337,10 +337,8 @@ function SocialPostCard({
         video={post.video}
         onPlay={onPlay}
         onChanged={() => void refreshVideo()}
-        allowReject={false}
         allowMarkWatched={false}
         searchResultLayout
-        showWatchProgress
       />
     </div>
     {(reactionsEnabled || commentsEnabled || canWatchTogether) && <div className="social-actions">

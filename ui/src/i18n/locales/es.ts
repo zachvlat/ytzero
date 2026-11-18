@@ -3,7 +3,6 @@ import { surfaceMessages } from "./surfaceMessages";
 import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
-import { tvPairingMessages } from "./tvPairing";
 import type { Locale } from "../types";
 
 export const es: Locale = {
@@ -12,7 +11,6 @@ export const es: Locale = {
     ...feedBuilderMessages.es,
     ...clusterMessages.es,
     ...notificationMessages.es,
-    ...tvPairingMessages.es,
     navToday: "Inicio",
     navSocial: "Social",
     navDiscovery: "Descubrir",

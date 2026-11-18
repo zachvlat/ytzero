@@ -740,17 +740,49 @@ async function selectVideo(uid: number, videoId: string) {
   `).get(uid, uid, videoId) as any | null;
 }
 
-export async function discoveryRecommendations(_uid: number): Promise<{ recommendations: DiscoveryRecommendation[]; enabled: boolean }> {
-  return { recommendations: [], enabled: pluginEnabled("discovery") };
+export async function discoveryRecommendations(uid: number): Promise<{ recommendations: DiscoveryRecommendation[]; enabled: boolean }> {
+  if (!pluginEnabled("discovery")) return { recommendations: [], enabled: false };
+  const settings = await discoverySettings(uid);
+  let recommendations = await readStoredDiscoveryRecommendations(uid, settings.total_limit);
+  if (recommendations.length === 0) {
+    await runDiscoveryRefresh(uid);
+    recommendations = await readStoredDiscoveryRecommendations(uid, settings.total_limit);
+  } else if (await storedDiscoveryAgeMs(uid) > DISCOVERY_REFRESH_INTERVAL_MS) {
+    refreshDiscoveryInBackground(uid);
+  }
+  return { recommendations, enabled: true };
 }
 
-export async function refreshDiscoveryNow(_uid: number): Promise<{ recommendations: DiscoveryRecommendation[]; enabled: boolean }> {
-  return { recommendations: [], enabled: pluginEnabled("discovery") };
+export async function refreshDiscoveryNow(uid: number): Promise<{ recommendations: DiscoveryRecommendation[]; enabled: boolean }> {
+  if (!pluginEnabled("discovery")) return { recommendations: [], enabled: false };
+  const timer = discoveryRefreshTimers.get(uid);
+  if (timer) {
+    clearTimeout(timer);
+    discoveryRefreshTimers.delete(uid);
+  }
+  await runDiscoveryRefresh(uid);
+  const settings = await discoverySettings(uid);
+  return { recommendations: await readStoredDiscoveryRecommendations(uid, settings.total_limit), enabled: true };
 }
 
-// Recommendations are a read-only projection. Library mutations must never
-// schedule searches, imports or recommendation-state writes.
-export function refreshDiscoveryInBackground(_uid: number) {}
+// Library mutations only schedule a refresh; the stored projection is local-only.
+export function refreshDiscoveryInBackground(uid: number) {
+  if (!pluginEnabled("discovery") || discoveryRefreshInFlight.has(uid) || discoveryRefreshTimers.has(uid)) return;
+  void storedDiscoveryAgeMs(uid).then((ageMs) => {
+    if (discoveryRefreshInFlight.has(uid) || discoveryRefreshTimers.has(uid)) return;
+    const delay = Math.max(0, DISCOVERY_REFRESH_INTERVAL_MS - ageMs);
+    const timer = setTimeout(() => {
+      discoveryRefreshTimers.delete(uid);
+      runDiscoveryRefresh(uid).catch((error) => {
+        log.warn("discovery.background_refresh_failed", { userId: uid, error: error instanceof Error ? error.message : String(error) });
+      });
+    }, delay);
+    discoveryRefreshTimers.set(uid, timer);
+    timer.unref();
+  }).catch((error) => {
+    log.warn("discovery.background_schedule_failed", { userId: uid, error: error instanceof Error ? error.message : String(error) });
+  });
+}
 
 async function runDiscoveryRefresh(uid: number) {
   if (maintenanceActive()) return;
@@ -767,13 +799,11 @@ async function rebuildDiscoveryRecommendations(uid: number) {
   const settings = await discoverySettings(uid);
   const totalLimit = settings.total_limit;
   const local = await localRecommendations(uid, Math.max(24, totalLimit), settings);
-  const importedExternal = await externalRecommendations(uid, Math.max(settings.early_external_count, 8), settings);
-  const recommendations = mixRecommendations([...local, ...importedExternal], totalLimit, settings);
+  const recommendations = mixRecommendations(local, totalLimit, settings);
   await persistDiscoveryRecommendations(uid, recommendations);
   log.info("discovery.refresh_complete", {
     userId: uid,
     localCandidates: local.length,
-    externalCandidates: importedExternal.length,
     recommendations: recommendations.length,
     ms: Date.now() - startedAt,
   });
@@ -907,7 +937,6 @@ async function recommendationSummary(uid: number): Promise<RecommendationSummary
        FROM user_videos partial_uv
        JOIN videos partial_v ON partial_v.video_id = partial_uv.video_id
        WHERE partial_uv.user_id = ? AND COALESCE(partial_uv.watched, 0) != 1
-         AND COALESCE(partial_uv.status, 'inbox') != 'archived'
          AND partial_v.is_short = 0 AND partial_v.live_status = 'none'
          AND COALESCE(partial_v.is_private, 0) = 0
          AND partial_uv.watch_position IS NOT NULL AND partial_uv.watch_duration IS NOT NULL

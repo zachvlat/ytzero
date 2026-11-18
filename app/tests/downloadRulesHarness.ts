@@ -11,7 +11,6 @@ insertVideo.run("rule-pending", "UC-rule", "Gameplay pending classification", "c
 insertVideo.run("rule-members", "UC-rule", "Gameplay bonus", "clean", "", 0, 1);
 insertVideo.run("rule-other", "UC-other", "Gameplay episode", "clean", "", 0, 0);
 insertVideo.run("rule-watched", "UC-rule", "Gameplay watched", "clean", "", 0, 0);
-insertVideo.run("rule-archived", "UC-rule", "Gameplay archived", "clean", "", 0, 0);
 insertVideo.run("rule-imported", "UC-rule", "Gameplay imported", "clean", "", 0, 0);
 insertVideo.run("rule-old-upload-newly-discovered", "UC-rule", "Future-scope back catalog", "clean", "", 0, 0);
 insertVideo.run("rule-before-subscription", "UC-rule", "Future-scope before subscription", "clean", "", 0, 0);
@@ -23,7 +22,6 @@ db.prepare("UPDATE videos SET published_at=datetime('now','-90 minutes'), create
 db.prepare("UPDATE videos SET published_at=datetime('now','-30 minutes'), created_at=datetime('now') WHERE video_id='rule-new-upload'").run();
 db.prepare("UPDATE videos SET external=1 WHERE video_id='rule-imported'").run();
 db.prepare("INSERT INTO user_videos(user_id,video_id,status,watched) VALUES(1,'rule-watched','inbox',1)").run();
-db.prepare("INSERT INTO user_videos(user_id,video_id,status) VALUES(1,'rule-archived','archived')").run();
 db.prepare("INSERT INTO user_channels(user_id,channel_id,followed) VALUES(1,'UC-rule',1)").run();
 db.prepare("INSERT INTO user_channels(user_id,channel_id,followed) VALUES(1,'UC-other',1)").run();
 db.prepare("UPDATE user_channels SET added_at=datetime('now','-1 hour') WHERE user_id=1 AND channel_id='UC-rule'").run();

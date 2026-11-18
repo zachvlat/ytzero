@@ -279,7 +279,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   feed_max_age_value: "6",
   feed_max_age_unit: "months",
   // Keep completed videos in the chronological feed. Watched state remains
-  // independent from inbox/archive state; this only changes feed visibility.
+  // independent from inbox state; this only changes feed visibility.
   keep_watched_in_feed: "0",
   hide_live_from_feed: "0",
   // "More like this" on the watch page. Off keeps a session strictly to what the
@@ -582,8 +582,6 @@ if (databaseConfig.engine === "postgres") await withPostgresBootLock(databaseCon
     await migrateSQLiteToPostgres(DB_PATH, databaseConfig.url);
   }
   await applyDatabaseMigrations(database);
-});
-if (databaseConfig.engine === "postgres") {
   await database.exec("CREATE TABLE IF NOT EXISTS download_settings (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (user_id, key))");
   await ensureChannelPostsPostgresSchema();
   // Social was added after the first PostgreSQL migration path shipped. Keep
@@ -646,6 +644,8 @@ if (databaseConfig.engine === "postgres") {
     );
     CREATE INDEX IF NOT EXISTS idx_social_comment_mentions_user ON social_comment_mentions(mentioned_user_id, comment_id);
   `);
+});
+if (databaseConfig.engine === "postgres") {
   runtimeSettingsReady = true;
   await reloadSettingCache();
 } else {

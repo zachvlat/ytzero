@@ -32,6 +32,8 @@ import { normalizeWatchCommentsMode } from "../../shared/watchComments";
 import { normalizeChannelOpenSyncMode } from "../../shared/channelSyncModes";
 export const BACKUP_FORMAT = "ytzero.portable-backup"; export const BACKUP_FORMAT_VERSION = 1;
 export const BACKUP_TTL_MS = 30 * 60_000;
+const PRE_RESTORE_SNAPSHOTS_TO_KEEP = 3;
+const SESSION_SWEEP_INTERVAL_MS = 60_000;
 const SESSION_DIR = process.env.RESTORE_SESSION_DIR ?? resolve(import.meta.dir, "../../data/restore-sessions");
 const AVATAR_DIR = process.env.AVATAR_DIR ?? resolve(import.meta.dir, "../../data/avatars");
 const DB_PATH = process.env.DB_PATH ?? resolve(import.meta.dir, "../../data/db/ytzero.db");
@@ -84,6 +86,22 @@ const SAFE_GLOBAL_SETTINGS = new Set(["app_name", "app_icon_color", "timezone"])
 const SECRET_SETTING_KEYS = new Set([...GLOBAL_SETTING_KEYS].filter((key) => key.startsWith("auth_") || key.includes("hash") || key.includes("secret")));
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
+const SQL_BATCH_SIZE = 400;
+
+function chunks<T>(items: T[], size = SQL_BATCH_SIZE): T[][] {
+  const result: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += size) result.push(items.slice(offset, offset + size));
+  return result;
+}
+
+async function selectByIds<T>(prefix: string, ids: string[], key: string): Promise<Map<string, T>> {
+  const found = new Map<string, T>();
+  for (const batch of chunks(ids)) {
+    const placeholders = batch.map(() => "?").join(",");
+    for (const row of await database.prepare(`${prefix} (${placeholders})`).all<T>(...batch)) found.set(String((row as any)[key]), row);
+  }
+  return found;
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function portableGlobalSettingValue(key: string, value: unknown): string {
   if (key === "profile_admin_only_areas") return serializeAdminOnlyAreas(parseAdminOnlyAreas(String(value)));
@@ -192,9 +210,13 @@ async function sectionData(id: string, profile: any | null, referenced: Set<stri
         const ph = [...referenced].map(() => "?").join(",");
         for (const row of await database.prepare(`SELECT DISTINCT channel_id FROM videos WHERE video_id IN (${ph})`).all(...referenced) as any[]) channelIds.add(row.channel_id);
       }
-      return (await Promise.all([...channelIds].map((channelId) => database.prepare("SELECT channel_id, title, url, thumbnail, custom_title, auto_download_min_duration_override, manual_status, refresh_schedule_days, refresh_schedule_time FROM channels WHERE channel_id=?").get(channelId)))).filter(Boolean);
+      const found = await selectByIds<any>("SELECT channel_id, title, url, thumbnail, custom_title, auto_download_min_duration_override, manual_status, refresh_schedule_days, refresh_schedule_time FROM channels WHERE channel_id IN", [...channelIds], "channel_id");
+      return [...channelIds].map((channelId) => found.get(channelId)).filter(Boolean);
     }
-    case "library.referenced-videos": return (await Promise.all([...referenced].map((videoId) => database.prepare("SELECT video_id, channel_id, title, description, thumbnail, published_at, live_status, duration, external FROM videos WHERE video_id=?").get(videoId)))).filter(Boolean);
+    case "library.referenced-videos": {
+      const found = await selectByIds<any>("SELECT video_id, channel_id, title, description, thumbnail, published_at, live_status, duration, external FROM videos WHERE video_id IN", [...referenced], "video_id");
+      return [...referenced].map((videoId) => found.get(videoId)).filter(Boolean);
+    }
     case "profile.settings": {
       const settings: Record<string, string> = {};
       for (const row of await database.prepare("SELECT key, value FROM user_settings WHERE user_id=?").all(uid) as any[]) {
@@ -223,10 +245,8 @@ async function sectionData(id: string, profile: any | null, referenced: Set<stri
     case "profile.subscriptions": return await database.prepare(`SELECT uc.channel_id, uc.followed, uc.playback_speed, uc.caption_mode, uc.caption_language, uc.hide_members_only_from_feed, uc.hide_members_only_on_channel, uc.members_only_visibility, uc.shorts_feed_visibility, uc.added_at FROM user_channels uc WHERE uc.user_id=?`).all(uid);
     case "profile.followed-playlists": return await database.prepare(`SELECT fp.playlist_id, fp.followed_at, fp.feed_from, fp.include_in_feed, fp.offline_policy, fp.download_quality, fp.video_sort, cp.channel_id, cp.title, cp.thumbnail, cp.video_count FROM user_followed_playlists fp JOIN channel_playlists cp ON cp.playlist_id=fp.playlist_id WHERE fp.user_id=?`).all(uid);
     case "profile.tags": { const hidden = hiddenFilterTagUuids(uid); return Promise.all((await database.prepare("SELECT id, portable_uuid, name, color, filter_only FROM tags WHERE user_id=?").all(uid) as any[]).map(async (tag) => ({ uuid: tag.portable_uuid, name: tag.name, color: tag.color, filterOnly: Boolean(tag.filter_only), hiddenFromFilters: hidden.has(tag.portable_uuid), channels: (await database.prepare("SELECT channel_id FROM channel_tags WHERE tag_id=?").all(tag.id) as any[]).map((r) => r.channel_id), videos: (await database.prepare("SELECT video_id FROM video_tags WHERE tag_id=? AND source='manual'").all(tag.id) as any[]).map((r) => r.video_id) }))); }
-    case "profile.rules": return [
-      ...(await database.prepare("SELECT r.pattern, r.match_type, r.field, t.portable_uuid AS tag_uuid FROM auto_tag_rules r JOIN tags t ON t.id=r.tag_id WHERE r.user_id=?").all(uid) as any[]).map((r) => ({ type: "auto-tag", ...r })),
-      ...(await database.prepare("SELECT pattern, match_type, field, action, channel_id FROM filter_rules WHERE user_id=?").all(uid) as any[]).map((r) => ({ type: "filter", ...r })),
-    ];
+    case "profile.rules": return
+      (await database.prepare("SELECT r.pattern, r.match_type, r.field, t.portable_uuid AS tag_uuid FROM auto_tag_rules r JOIN tags t ON t.id=r.tag_id WHERE r.user_id=?").all(uid) as any[]).map((r) => ({ type: "auto-tag", ...r }));
     case "profile.playlists": return Promise.all((await database.prepare("SELECT id, portable_uuid, name, icon, sort_order, created_at, offline_policy, download_quality FROM user_playlists WHERE user_id=?").all(uid) as any[]).map(async (playlist) => ({ uuid: playlist.portable_uuid, name: playlist.name, icon: playlist.icon, order: playlist.sort_order, createdAt: playlist.created_at, offlinePolicy: playlist.offline_policy, downloadQuality: playlist.download_quality, videos: (await database.prepare("SELECT video_id, added_at, position FROM user_playlist_videos WHERE playlist_id=? ORDER BY position, video_id").all(playlist.id) as any[]), rules: await database.prepare("SELECT pattern, match_type, field FROM user_playlist_rules WHERE playlist_id=?").all(playlist.id) })));
     case "profile.video-state": return Promise.all((await database.prepare("SELECT video_id, status, bucket, queued_at, show_from, watch_position, watch_duration, watched, liked, playback_context_json FROM user_videos WHERE user_id=?").all(uid) as any[]).map(async ({ playback_context_json, ...row }) => ({ ...row, playbackContext: await exportPlaybackContext(uid, playback_context_json) })));
     case "profile.history": return await database.prepare("SELECT video_id, watched_at FROM history WHERE user_id=? ORDER BY watched_at").all(uid);
@@ -316,9 +336,28 @@ function parseJsonl(bytes: Uint8Array, name: string): any[] {
 }
 
 function sessionPaths(id: string) { const dir = resolve(SESSION_DIR, id); return { dir, archive: resolve(dir, "archive.zip"), state: resolve(dir, "session.json") }; }
-function sweepSessions() { if (!existsSync(SESSION_DIR)) return; for (const name of readdirSync(SESSION_DIR)) { const p = resolve(SESSION_DIR, name); try { if (Date.now() - statSync(p).mtimeMs > BACKUP_TTL_MS) rmSync(p, { recursive: true, force: true }); } catch {} } }
+const activeRestoreSessions = new Set<string>();
+function sweepSessions() { if (!existsSync(SESSION_DIR)) return; for (const name of readdirSync(SESSION_DIR)) { if (activeRestoreSessions.has(name)) continue; const p = resolve(SESSION_DIR, name); try { if (Date.now() - statSync(p).mtimeMs > BACKUP_TTL_MS) rmSync(p, { recursive: true, force: true }); } catch {} } }
+setInterval(sweepSessions, SESSION_SWEEP_INTERVAL_MS).unref();
+function prunePreRestoreSnapshots(safetyDir: string) {
+  if (database.engine !== "sqlite") return;
+  const snapshots = readdirSync(safetyDir).filter((name) => /^pre-restore-.*\.db$/.test(name)).sort();
+  for (const name of snapshots.slice(0, -PRE_RESTORE_SNAPSHOTS_TO_KEEP)) {
+    try { rmSync(resolve(safetyDir, name), { force: true }); } catch {}
+  }
+}
 interface RestoreSessionState { id: string; adminId: number; createdAt: number; manifest: BackupManifest; warnings: string[]; planRevision: number; plan?: RestorePlan }
-function loadSession(id: string, adminId: number): RestoreSessionState { safePath(id); const paths = sessionPaths(id); if (!existsSync(paths.state)) throw new Error("restore session expired"); const state = JSON.parse(readFileSync(paths.state, "utf8")) as RestoreSessionState; if (state.adminId !== adminId || Date.now() - state.createdAt > BACKUP_TTL_MS) throw new Error("restore session expired"); return state; }
+function loadSession(id: string, adminId: number): RestoreSessionState {
+  safePath(id); const paths = sessionPaths(id);
+  if (!existsSync(paths.state)) throw new Error("restore session expired");
+  const state = JSON.parse(readFileSync(paths.state, "utf8")) as RestoreSessionState;
+  if (state.adminId !== adminId) throw new Error("restore session expired");
+  if (Date.now() - state.createdAt > BACKUP_TTL_MS) {
+    if (!activeRestoreSessions.has(id)) rmSync(paths.dir, { recursive: true, force: true });
+    throw new Error("restore session expired");
+  }
+  return state;
+}
 function saveSession(state: RestoreSessionState) { writeFileSync(sessionPaths(state.id).state, JSON.stringify(state)); }
 
 function validateManifest(entries: Map<string, Uint8Array>): BackupManifest {
@@ -369,18 +408,43 @@ export async function planPortableRestore(adminId: number, id: string, plan: Res
 }
 
 async function ensureChannel(row: any) { if (!row?.channel_id || typeof row.channel_id !== "string") return; await database.prepare("INSERT INTO channels (channel_id,title,url,thumbnail,external) VALUES (?,?,?,?,1) ON CONFLICT(channel_id) DO UPDATE SET title=CASE WHEN channels.title='' THEN excluded.title ELSE channels.title END, thumbnail=CASE WHEN channels.thumbnail='' THEN excluded.thumbnail ELSE channels.thumbnail END").run(row.channel_id, String(row.title ?? ""), String(row.url ?? ""), String(row.thumbnail ?? "")); }
+async function ensureChannels(rows: any[]) {
+  const valid = rows.filter((row) => typeof row?.channel_id === "string" && row.channel_id);
+  for (const batch of chunks(valid)) {
+    await database.prepare(`INSERT INTO channels (channel_id,title,url,thumbnail,external) VALUES ${batch.map(() => "(?,?,?,?,1)").join(",")}
+      ON CONFLICT(channel_id) DO UPDATE SET title=CASE WHEN channels.title='' THEN excluded.title ELSE channels.title END, thumbnail=CASE WHEN channels.thumbnail='' THEN excluded.thumbnail ELSE channels.thumbnail END`)
+      .run(...batch.flatMap((row) => [row.channel_id, String(row.title ?? ""), String(row.url ?? ""), String(row.thumbnail ?? "")]));
+  }
+}
 async function ensureVideo(row: any) { if (!row?.video_id || !row?.channel_id) return; await ensureChannel({ channel_id: row.channel_id }); await database.prepare("INSERT INTO videos (video_id,channel_id,title,description,thumbnail,published_at,live_status,duration,external) VALUES (?,?,?,?,?,?,?,?,1) ON CONFLICT(video_id) DO UPDATE SET title=CASE WHEN videos.title='' THEN excluded.title ELSE videos.title END").run(row.video_id, row.channel_id, String(row.title ?? ""), String(row.description ?? ""), String(row.thumbnail ?? ""), row.published_at ?? null, row.live_status ?? "none", row.duration ?? null); }
-async function mappedObject(sourceInstallationId: string, type: string, uuid: string): Promise<number | null> { return (await database.prepare("SELECT local_id FROM portable_object_mappings WHERE source_installation_id=? AND object_type=? AND source_uuid=?").get(sourceInstallationId, type, uuid) as any)?.local_id ?? null; }
-async function saveMapping(sourceInstallationId: string, type: string, uuid: string, id: number) { await database.prepare("INSERT INTO portable_object_mappings(source_installation_id,object_type,source_uuid,local_id) VALUES(?,?,?,?) ON CONFLICT(source_installation_id,object_type,source_uuid) DO UPDATE SET local_id=excluded.local_id").run(sourceInstallationId, type, uuid, id); }
+async function ensureVideos(rows: any[]) {
+  const valid = rows.filter((row) => typeof row?.video_id === "string" && row.video_id && typeof row?.channel_id === "string" && row.channel_id);
+  await ensureChannels(valid.map((row) => ({ channel_id: row.channel_id })));
+  for (const batch of chunks(valid)) {
+    await database.prepare(`INSERT INTO videos (video_id,channel_id,title,description,thumbnail,published_at,live_status,duration,external) VALUES ${batch.map(() => "(?,?,?,?,?,?,?,?,1)").join(",")}
+      ON CONFLICT(video_id) DO UPDATE SET title=CASE WHEN videos.title='' THEN excluded.title ELSE videos.title END`)
+      .run(...batch.flatMap((row) => [row.video_id, row.channel_id, String(row.title ?? ""), String(row.description ?? ""), String(row.thumbnail ?? ""), row.published_at ?? null, row.live_status ?? "none", row.duration ?? null]));
+  }
+}
 
 export async function commitPortableRestore(adminId: number, id: string, revision: number) {
   const state = loadSession(id, adminId); if (!state.plan || state.planRevision !== revision) throw new Error("restore plan changed; review it again"); const releaseMaintenance = await acquireMaintenance("portable restore");
+  activeRestoreSessions.add(id);
   const safetyDir = resolve(dirname(DB_PATH), "backups"); mkdirSync(safetyDir, { recursive: true }); const stamp = new Date().toISOString().replace(/[:.]/g, "-"); const snapshot = database.engine === "sqlite" ? resolve(safetyDir, `pre-restore-${stamp}.db`) : "postgresql-transaction"; const avatarStages: { from: string; to: string; previous: string; nextFileName: string }[] = [];
   try {
     if (database.engine === "sqlite") { await database.exec("PRAGMA wal_checkpoint(FULL)"); copyFileSync(DB_PATH, snapshot); }
     const { entries, data } = decodedSections(state), selected = new Set(state.plan.sections), counts = { created: 0, updated: 0, skipped: 0, warnings: [...state.warnings] as string[] }, profileIds = new Map<string, number>();
     const legacyDownloadsEnabled = (data.get("instance.plugins:") ?? []).find((row: any) => row?.id === "downloads")?.enabled;
     const tx = database.transaction(async () => {
+      const mappingRows = await database.prepare("SELECT object_type, source_uuid, local_id FROM portable_object_mappings WHERE source_installation_id=?")
+        .all(state.manifest.sourceInstallationId) as Array<{ object_type: string; source_uuid: string; local_id: number }>;
+      const mappingCache = new Map(mappingRows.map((row) => [`${row.object_type}:${row.source_uuid}`, Number(row.local_id)]));
+      const pendingMappings: Array<[string, string, number]> = [];
+      const mappedObject = (_sourceInstallationId: string, type: string, uuid: string) => mappingCache.get(`${type}:${uuid}`) ?? null;
+      const saveMapping = (_sourceInstallationId: string, type: string, uuid: string, localId: number) => {
+        mappingCache.set(`${type}:${uuid}`, localId);
+        pendingMappings.push([type, uuid, localId]);
+      };
       const profilesIndex = data.get("profiles.index:") ?? state.manifest.profiles;
       const needsProfiles = selected.has("profiles.index") || [...selected].some((sectionId) => SECTION_BY_ID.get(sectionId)?.scope === "profile");
       for (const source of needsProfiles ? profilesIndex : []) {
@@ -408,47 +472,85 @@ export async function commitPortableRestore(adminId: number, id: string, revisio
         if (typeof doc.defaultGroup === "string") { const group = await database.prepare("SELECT id FROM permission_groups WHERE portable_uuid=?").get(doc.defaultGroup) as { id: number } | null; if (group) await database.prepare("UPDATE permission_policy SET default_group_id=?,revision=revision+1 WHERE singleton=1").run(group.id); }
       }
       if (selected.has("instance.downloads")) await restoreDownloadInstanceSettings(data.get("instance.downloads:"));
-      if (selected.has("instance.channels")) for (const row of data.get("instance.channels:") ?? []) {
-        await ensureChannel(row);
-        await database.prepare("UPDATE channels SET custom_title=?, auto_download_min_duration_override=? WHERE channel_id=?")
-          .run(row.custom_title ?? null, Number.isInteger(row.auto_download_min_duration_override) ? row.auto_download_min_duration_override : null, row.channel_id);
-        if (Object.hasOwn(row, "refresh_schedule_days") || Object.hasOwn(row, "refresh_schedule_time")) {
-          const schedule = parseManualRefreshSchedule(row.refresh_schedule_days, row.refresh_schedule_time);
-          await database.prepare("UPDATE channels SET refresh_schedule_days=?, refresh_schedule_time=? WHERE channel_id=?")
-            .run(schedule ? JSON.stringify(schedule.days) : null, schedule ? JSON.stringify(schedule.times) : null, row.channel_id);
+      if (selected.has("instance.channels")) {
+        const rows = (data.get("instance.channels:") ?? []) as any[];
+        await ensureChannels(rows);
+        const updateRows = [...new Map(rows.map((row: any) => [row.channel_id, row])).values()] as any[];
+        for (const batch of chunks(updateRows)) {
+          await database.prepare(`UPDATE channels SET custom_title=(CASE channel_id ${batch.map(() => "WHEN ? THEN ?").join(" ")} END),
+            auto_download_min_duration_override=(CASE channel_id ${batch.map(() => "WHEN ? THEN ?").join(" ")} END)
+            WHERE channel_id IN (${batch.map(() => "?").join(",")})`)
+            .run(...batch.flatMap((row) => [row.channel_id, row.custom_title ?? null, row.channel_id, Number.isInteger(row.auto_download_min_duration_override) ? row.auto_download_min_duration_override : null]), ...batch.map((row) => row.channel_id));
         }
-        if (isChannelManualStatus(row.manual_status)) await database.prepare("UPDATE channels SET manual_status=?, manual_status_updated_at=datetime('now') WHERE channel_id=?").run(row.manual_status,row.channel_id);
+        const scheduleRows = updateRows.filter((row) => Object.hasOwn(row, "refresh_schedule_days") || Object.hasOwn(row, "refresh_schedule_time"))
+          .map((row) => { const schedule = parseManualRefreshSchedule(row.refresh_schedule_days, row.refresh_schedule_time); return [row.channel_id, schedule ? JSON.stringify(schedule.days) : null, schedule ? JSON.stringify(schedule.times) : null] as const; });
+        for (const batch of chunks(scheduleRows)) {
+          await database.prepare(`UPDATE channels SET refresh_schedule_days=(CASE channel_id ${batch.map(() => "WHEN ? THEN ?").join(" ")} END),
+            refresh_schedule_time=(CASE channel_id ${batch.map(() => "WHEN ? THEN ?").join(" ")} END)
+            WHERE channel_id IN (${batch.map(() => "?").join(",")})`)
+            .run(...batch.flatMap(([channelId, days, times]) => [channelId, days, channelId, times]), ...batch.map(([channelId]) => channelId));
+        }
+        const manualRows = updateRows.filter((row) => isChannelManualStatus(row.manual_status));
+        for (const batch of chunks(manualRows)) {
+          await database.prepare(`UPDATE channels SET manual_status=(CASE channel_id ${batch.map(() => "WHEN ? THEN ?").join(" ")} END), manual_status_updated_at=datetime('now')
+            WHERE channel_id IN (${batch.map(() => "?").join(",")})`)
+            .run(...batch.flatMap((row) => [row.channel_id, row.manual_status]), ...batch.map((row) => row.channel_id));
+        }
       }
-      if (selected.has("library.referenced-videos")) for (const row of data.get("library.referenced-videos:") ?? []) await ensureVideo(row);
+      if (selected.has("library.referenced-videos")) await ensureVideos(data.get("library.referenced-videos:") ?? []);
+      const knownVideoIds = new Set((await database.prepare("SELECT video_id FROM videos").all() as Array<{ video_id: string }>).map((row) => row.video_id));
       if (selected.has("instance.plugins")) for (const row of data.get("instance.plugins:") ?? []) { if (row.id === "downloads") continue; if (!PLUGINS.some((p) => p.id === row.id)) { counts.warnings.push(`Plugin ${row.id} is unavailable`); continue; } await setPluginEnabled(row.id, Boolean(row.enabled), { activate: false }); const adapter=PLUGIN_BACKUP_ADAPTERS.find((item)=>item.id===row.id&&item.scope==="instance"); if(adapter&&row.payload) await adapter.restore(adminId,row.payload); }
       for (const profile of state.manifest.profiles) {
         const uid = profileIds.get(profile.id); if (!uid) continue; const get = (section: string) => data.get(`${section}:${profile.id}`);
-        if (selected.has("profile.settings")) { const doc = get("profile.settings") ?? {}; if (state.plan!.strategy === "replace") await database.prepare(`DELETE FROM user_settings WHERE user_id=? AND key IN (${USER_SETTING_KEYS.map(() => "?").join(",")})`).run(uid, ...USER_SETTING_KEYS); for (const [key, value] of Object.entries(doc.settings ?? {})) if (USER_SETTING_KEYS.includes(key) && key in SETTING_DEFAULTS) await database.prepare("INSERT INTO user_settings(user_id,key,value) VALUES(?,?,?) ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value").run(uid, key, portableUserSettingValue(key, value)); for (const [pluginId, wrapped] of Object.entries(doc.plugins ?? {})) { if (pluginId === "downloads") { if (state.plan!.strategy === "replace") { await database.prepare("DELETE FROM download_settings WHERE user_id=?").run(uid); await database.prepare("DELETE FROM download_rules WHERE user_id=?").run(uid); } await restoreDownloadPreferences(uid,(wrapped as any)?.payload,typeof legacyDownloadsEnabled === "boolean" ? legacyDownloadsEnabled : undefined); continue; } const adapter=PLUGIN_BACKUP_ADAPTERS.find((item)=>item.id===pluginId&&item.scope==="profile"); if(adapter) await adapter.restore(uid,(wrapped as any)?.payload); else counts.warnings.push(`Plugin ${pluginId} is unavailable`); } }
+        if (selected.has("profile.settings")) { const doc = get("profile.settings") ?? {}; if (state.plan!.strategy === "replace") await database.prepare(`DELETE FROM user_settings WHERE user_id=? AND key IN (${USER_SETTING_KEYS.map(() => "?").join(",")})`).run(uid, ...USER_SETTING_KEYS); const settingRows = Object.entries(doc.settings ?? {}).filter(([key]) => USER_SETTING_KEYS.includes(key) && key in SETTING_DEFAULTS);
+        for (const batch of chunks(settingRows)) await database.prepare(`INSERT INTO user_settings(user_id,key,value) VALUES ${batch.map(() => "(?,?,?)").join(",")} ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value`)
+          .run(...batch.flatMap(([key, value]) => [uid, key, portableUserSettingValue(key, value)])); for (const [pluginId, wrapped] of Object.entries(doc.plugins ?? {})) { if (pluginId === "downloads") { if (state.plan!.strategy === "replace") { await database.prepare("DELETE FROM download_settings WHERE user_id=?").run(uid); await database.prepare("DELETE FROM download_rules WHERE user_id=?").run(uid); } await restoreDownloadPreferences(uid,(wrapped as any)?.payload,typeof legacyDownloadsEnabled === "boolean" ? legacyDownloadsEnabled : undefined); continue; } const adapter=PLUGIN_BACKUP_ADAPTERS.find((item)=>item.id===pluginId&&item.scope==="profile"); if(adapter) await adapter.restore(uid,(wrapped as any)?.payload); else counts.warnings.push(`Plugin ${pluginId} is unavailable`); } }
         if (selected.has("profile.feed-builder")) { const doc = get("profile.feed-builder"); if (doc && typeof doc === "object") { const config = normalizeFeedBuilderConfig(doc, Number((doc as any).revision) || 0); await database.prepare("INSERT INTO user_feed_configs(user_id,revision,config_json,updated_at) VALUES(?,?,?,datetime('now')) ON CONFLICT(user_id) DO UPDATE SET revision=excluded.revision,config_json=excluded.config_json,updated_at=excluded.updated_at").run(uid, config.revision, JSON.stringify({ ...config, revision: undefined })); } else if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM user_feed_configs WHERE user_id=?").run(uid); }
-        if (selected.has("profile.notification-preferences")) { if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM notification_preferences WHERE user_id=?").run(uid); for (const row of get("profile.notification-preferences") ?? []) { const validKind = row?.kind === "*" || NOTIFICATION_CATEGORIES.includes(row?.kind); const validSource = typeof row?.source_id === "string" && row.source_id.length <= 200 && (row.source_id === "" || row.kind === "channel_video" || row.kind === "playlist_video"); if (validKind && validSource && !(row.kind === "*" && row.source_id !== "") && (row.enabled === 0 || row.enabled === 1 || row.enabled === false || row.enabled === true)) await database.prepare("INSERT INTO notification_preferences(user_id,kind,source_id,enabled) VALUES(?,?,?,?) ON CONFLICT(user_id,kind,source_id) DO UPDATE SET enabled=excluded.enabled").run(uid,row.kind,row.source_id,row.enabled?1:0); } }
+        if (selected.has("profile.notification-preferences")) {
+          if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM notification_preferences WHERE user_id=?").run(uid);
+          const rows = ((get("profile.notification-preferences") ?? []) as any[]).filter((row) => {
+            const validKind = row?.kind === "*" || NOTIFICATION_CATEGORIES.includes(row?.kind);
+            const validSource = typeof row?.source_id === "string" && row.source_id.length <= 200 && (row.source_id === "" || row.kind === "channel_video" || row.kind === "playlist_video");
+            return validKind && validSource && !(row.kind === "*" && row.source_id !== "") && (row.enabled === 0 || row.enabled === 1 || row.enabled === false || row.enabled === true);
+          });
+          for (const batch of chunks(rows)) await database.prepare(`INSERT INTO notification_preferences(user_id,kind,source_id,enabled) VALUES ${batch.map(() => "(?,?,?,?)").join(",")} ON CONFLICT(user_id,kind,source_id) DO UPDATE SET enabled=excluded.enabled`)
+            .run(...batch.flatMap((row) => [uid, row.kind, row.source_id, row.enabled ? 1 : 0]));
+        }
         if (selected.has("profile.access-control")) { const doc = get("profile.access-control") ?? {}; const group = typeof doc.group === "string" ? await database.prepare("SELECT id FROM permission_groups WHERE portable_uuid=?").get(doc.group) as { id: number } | null : null; if (group) { const overrides = doc.overrides && typeof doc.overrides === "object" ? Object.fromEntries(Object.entries(doc.overrides).filter(([permission, value]) => isProfilePermissionArea(permission) && (value === "allow" || value === "deny"))) as any : {}; await updateProfileAccess(uid, group.id, overrides); } }
         if (selected.has("profile.downloads")) { if (state.plan!.strategy === "replace") { await database.prepare("DELETE FROM download_settings WHERE user_id=?").run(uid); await database.prepare("DELETE FROM download_rules WHERE user_id=?").run(uid); } await restoreDownloadPreferences(uid,get("profile.downloads")); }
-        if (selected.has("profile.subscriptions")) { if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM user_channels WHERE user_id=?").run(uid); for (const row of get("profile.subscriptions") ?? []) { await ensureChannel({ channel_id: row.channel_id }); await database.prepare("INSERT INTO user_channels(user_id,channel_id,followed,playback_speed,caption_mode,caption_language,hide_members_only_from_feed,hide_members_only_on_channel,members_only_visibility,shorts_feed_visibility,added_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,channel_id) DO UPDATE SET followed=excluded.followed,playback_speed=excluded.playback_speed,caption_mode=excluded.caption_mode,caption_language=excluded.caption_language,hide_members_only_from_feed=excluded.hide_members_only_from_feed,hide_members_only_on_channel=excluded.hide_members_only_on_channel,members_only_visibility=excluded.members_only_visibility,shorts_feed_visibility=excluded.shorts_feed_visibility").run(uid,row.channel_id,row.followed?1:0,normalizePlaybackSpeed(row.playback_speed),row.caption_mode??null,row.caption_language??null,row.hide_members_only_from_feed??null,row.hide_members_only_on_channel??null,row.members_only_visibility??"default",row.shorts_feed_visibility === "show" ? "show" : "default",row.added_at??new Date().toISOString()); if (row.followed) await database.prepare("UPDATE channels SET external=0 WHERE channel_id=?").run(row.channel_id); } }
+        if (selected.has("profile.subscriptions")) {
+          if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM user_channels WHERE user_id=?").run(uid);
+          const rows = (get("profile.subscriptions") ?? []) as any[];
+          await ensureChannels(rows.map((row) => ({ channel_id: row.channel_id })));
+          for (const batch of chunks(rows)) await database.prepare(`INSERT INTO user_channels(user_id,channel_id,followed,playback_speed,caption_mode,caption_language,hide_members_only_from_feed,hide_members_only_on_channel,members_only_visibility,shorts_feed_visibility,added_at) VALUES ${batch.map(() => "(?,?,?,?,?,?,?,?,?,?,?)").join(",")}
+            ON CONFLICT(user_id,channel_id) DO UPDATE SET followed=excluded.followed,playback_speed=excluded.playback_speed,caption_mode=excluded.caption_mode,caption_language=excluded.caption_language,hide_members_only_from_feed=excluded.hide_members_only_from_feed,hide_members_only_on_channel=excluded.hide_members_only_on_channel,members_only_visibility=excluded.members_only_visibility,shorts_feed_visibility=excluded.shorts_feed_visibility`)
+            .run(...batch.flatMap((row) => [uid, row.channel_id, row.followed ? 1 : 0, normalizePlaybackSpeed(row.playback_speed), row.caption_mode ?? null, row.caption_language ?? null, row.hide_members_only_from_feed ?? null, row.hide_members_only_on_channel ?? null, row.members_only_visibility ?? "default", row.shorts_feed_visibility === "show" ? "show" : "default", row.added_at ?? new Date().toISOString()]));
+          const followedIds = [...new Set(rows.filter((row) => row.followed).map((row) => row.channel_id))];
+          for (const batch of chunks(followedIds)) await database.prepare(`UPDATE channels SET external=0 WHERE channel_id IN (${batch.map(() => "?").join(",")})`).run(...batch);
+        }
         if (selected.has("profile.followed-playlists")) {
           if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM user_followed_playlists WHERE user_id=?").run(uid);
-          for (const row of get("profile.followed-playlists") ?? []) {
-            await ensureChannel({ channel_id: row.channel_id });
-            await database.prepare("INSERT INTO channel_playlists(playlist_id,channel_id,title,thumbnail,video_count) VALUES(?,?,?,?,?) ON CONFLICT(playlist_id) DO UPDATE SET title=excluded.title")
-              .run(row.playlist_id,row.channel_id,row.title??"",row.thumbnail??"",row.video_count??"");
-            const existing = await database.prepare("SELECT offline_policy, download_quality, video_sort FROM user_followed_playlists WHERE user_id=? AND playlist_id=?")
-              .get(uid,row.playlist_id) as { offline_policy: string; download_quality: DownloadQuality | null; video_sort: string } | null;
-            const offlinePolicy=["none","download","keep"].includes(row.offline_policy)?row.offline_policy:(existing?.offline_policy??"none");
+          const rows = (get("profile.followed-playlists") ?? []) as any[];
+          await ensureChannels(rows.map((row) => ({ channel_id: row.channel_id })));
+          for (const batch of chunks(rows)) await database.prepare(`INSERT INTO channel_playlists(playlist_id,channel_id,title,thumbnail,video_count) VALUES ${batch.map(() => "(?,?,?,?,?)").join(",")} ON CONFLICT(playlist_id) DO UPDATE SET title=excluded.title`)
+            .run(...batch.flatMap((row) => [row.playlist_id, row.channel_id, row.title ?? "", row.thumbnail ?? "", row.video_count ?? ""]));
+          const existingRows = (await database.prepare("SELECT playlist_id, offline_policy, download_quality, video_sort FROM user_followed_playlists WHERE user_id=?").all(uid) as Array<{ playlist_id: string; offline_policy: string; download_quality: DownloadQuality | null; video_sort: string }>);
+          const existing = new Map(existingRows.map((row) => [row.playlist_id, row]));
+          const followedRows = rows.map((row) => {
+            const previous = existing.get(row.playlist_id);
+            const offlinePolicy = ["none", "download", "keep"].includes(row.offline_policy) ? row.offline_policy : (previous?.offline_policy ?? "none");
             const downloadQuality = Object.hasOwn(row, "download_quality")
               ? (isDownloadQuality(row.download_quality) ? row.download_quality : null)
-              : (existing?.download_quality ?? null);
-            const videoSort = normalizePlaylistSort(row.video_sort ?? existing?.video_sort);
-            await database.prepare("INSERT INTO user_followed_playlists(user_id,playlist_id,followed_at,feed_from,include_in_feed,offline_policy,download_quality,video_sort) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(user_id,playlist_id) DO UPDATE SET feed_from=excluded.feed_from,include_in_feed=excluded.include_in_feed,offline_policy=excluded.offline_policy,download_quality=excluded.download_quality,video_sort=excluded.video_sort")
-              .run(uid,row.playlist_id,row.followed_at,row.feed_from,row.include_in_feed?1:0,offlinePolicy,downloadQuality,videoSort);
-          }
+              : (previous?.download_quality ?? null);
+            return [uid, row.playlist_id, row.followed_at, row.feed_from, row.include_in_feed ? 1 : 0, offlinePolicy, downloadQuality, normalizePlaylistSort(row.video_sort ?? previous?.video_sort)];
+          });
+          for (const batch of chunks(followedRows)) await database.prepare(`INSERT INTO user_followed_playlists(user_id,playlist_id,followed_at,feed_from,include_in_feed,offline_policy,download_quality,video_sort) VALUES ${batch.map(() => "(?,?,?,?,?,?,?,?)").join(",")}
+            ON CONFLICT(user_id,playlist_id) DO UPDATE SET feed_from=excluded.feed_from,include_in_feed=excluded.include_in_feed,offline_policy=excluded.offline_policy,download_quality=excluded.download_quality,video_sort=excluded.video_sort`)
+            .run(...batch.flat());
         }
         const tagIds = new Map<string, number>();
-        if (selected.has("profile.tags")) { const savedVisibility=(await database.prepare("SELECT value FROM user_settings WHERE user_id=? AND key=?").get(uid,TAG_FILTER_VISIBILITY_SETTING) as any)?.value, hiddenTagUuids=state.plan!.strategy==="replace"?new Set<string>():parseHiddenFilterTagUuids(savedVisibility); if (state.plan!.strategy === "replace") { await database.prepare("DELETE FROM notification_preferences WHERE user_id=? AND kind='tag_rule' AND source_id<>''").run(uid); await database.prepare("DELETE FROM tags WHERE user_id=?").run(uid); } for (const row of get("profile.tags") ?? []) { let tagId = await mappedObject(state.manifest.sourceInstallationId,"tag",row.uuid) ?? (await database.prepare("SELECT id FROM tags WHERE portable_uuid=? OR (user_id=? AND name=? COLLATE NOCASE) LIMIT 1").get(row.uuid,uid,row.name) as any)?.id; if (!tagId) tagId=Number((await database.prepare("INSERT INTO tags(name,color,filter_only,user_id,portable_uuid) VALUES(?,?,?,?,?) RETURNING id").run(String(row.name),String(row.color||"#7c5cff"),row.filterOnly?1:0,uid,row.uuid)).lastInsertRowid); else await database.prepare("UPDATE tags SET name=?,color=?,filter_only=? WHERE id=? AND user_id=?").run(row.name,row.color,row.filterOnly?1:0,tagId,uid); if(Object.hasOwn(row,"hiddenFromFilters")) row.hiddenFromFilters?hiddenTagUuids.add(row.uuid):hiddenTagUuids.delete(row.uuid); await saveMapping(state.manifest.sourceInstallationId,"tag",row.uuid,tagId); tagIds.set(row.uuid,tagId); for (const channelId of row.channels??[]) { await ensureChannel({channel_id:channelId}); await database.prepare("INSERT OR IGNORE INTO channel_tags(channel_id,tag_id) VALUES(?,?)").run(channelId,tagId); } for (const videoId of row.videos??[]) if (await database.prepare("SELECT 1 FROM videos WHERE video_id=?").get(videoId)) await database.prepare("INSERT INTO video_tags(video_id,tag_id,source) VALUES(?,?,'manual') ON CONFLICT(video_id,tag_id) DO UPDATE SET source='manual'").run(videoId,tagId); } await database.prepare("INSERT INTO user_settings(user_id,key,value) VALUES(?,?,?) ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value").run(uid,TAG_FILTER_VISIBILITY_SETTING,serializeHiddenFilterTagUuids(hiddenTagUuids)); }
-        if (selected.has("profile.rules")) { if (state.plan!.strategy === "replace") { await database.prepare("DELETE FROM notification_preferences WHERE user_id=? AND kind='tag_rule' AND source_id<>''").run(uid); await database.prepare("DELETE FROM auto_tag_rules WHERE user_id=?").run(uid); await database.prepare("DELETE FROM filter_rules WHERE user_id=?").run(uid); } for (const row of get("profile.rules") ?? []) { if (row.type==="auto-tag") { const tagId=tagIds.get(row.tag_uuid)??await mappedObject(state.manifest.sourceInstallationId,"tag",row.tag_uuid); if (tagId && !await database.prepare("SELECT 1 FROM auto_tag_rules WHERE user_id=? AND tag_id=? AND lower(pattern)=lower(?) AND match_type=? AND field=?").get(uid,tagId,row.pattern,row.match_type,row.field)) await database.prepare("INSERT INTO auto_tag_rules(user_id,tag_id,pattern,match_type,field) VALUES(?,?,?,?,?)").run(uid,tagId,row.pattern,row.match_type,row.field); } else if (row.type==="filter" && !await database.prepare("SELECT 1 FROM filter_rules WHERE user_id=? AND lower(pattern)=lower(?) AND match_type=? AND field=? AND action=? AND channel_id IS ?").get(uid,row.pattern,row.match_type,row.field,row.action,row.channel_id??null)) await database.prepare("INSERT INTO filter_rules(user_id,pattern,match_type,field,action,channel_id) VALUES(?,?,?,?,?,?)").run(uid,row.pattern,row.match_type,row.field,row.action,row.channel_id??null); } }
+        if (selected.has("profile.tags")) { const savedVisibility=(await database.prepare("SELECT value FROM user_settings WHERE user_id=? AND key=?").get(uid,TAG_FILTER_VISIBILITY_SETTING) as any)?.value, hiddenTagUuids=state.plan!.strategy==="replace"?new Set<string>():parseHiddenFilterTagUuids(savedVisibility); if (state.plan!.strategy === "replace") { await database.prepare("DELETE FROM notification_preferences WHERE user_id=? AND kind='tag_rule' AND source_id<>''").run(uid); await database.prepare("DELETE FROM tags WHERE user_id=?").run(uid); } for (const row of get("profile.tags") ?? []) { let tagId = await mappedObject(state.manifest.sourceInstallationId,"tag",row.uuid) ?? (await database.prepare("SELECT id FROM tags WHERE portable_uuid=? OR (user_id=? AND name=? COLLATE NOCASE) LIMIT 1").get(row.uuid,uid,row.name) as any)?.id; if (!tagId) tagId=Number((await database.prepare("INSERT INTO tags(name,color,filter_only,user_id,portable_uuid) VALUES(?,?,?,?,?) RETURNING id").run(String(row.name),String(row.color||"#7c5cff"),row.filterOnly?1:0,uid,row.uuid)).lastInsertRowid); else await database.prepare("UPDATE tags SET name=?,color=?,filter_only=? WHERE id=? AND user_id=?").run(row.name,row.color,row.filterOnly?1:0,tagId,uid); if(Object.hasOwn(row,"hiddenFromFilters")) row.hiddenFromFilters?hiddenTagUuids.add(row.uuid):hiddenTagUuids.delete(row.uuid); await saveMapping(state.manifest.sourceInstallationId,"tag",row.uuid,tagId); tagIds.set(row.uuid,tagId); for (const channelId of row.channels??[]) { await ensureChannel({channel_id:channelId}); await database.prepare("INSERT OR IGNORE INTO channel_tags(channel_id,tag_id) VALUES(?,?)").run(channelId,tagId); } for (const videoId of row.videos??[]) if (knownVideoIds.has(videoId)) await database.prepare("INSERT INTO video_tags(video_id,tag_id,source) VALUES(?,?,'manual') ON CONFLICT(video_id,tag_id) DO UPDATE SET source='manual'").run(videoId,tagId); } await database.prepare("INSERT INTO user_settings(user_id,key,value) VALUES(?,?,?) ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value").run(uid,TAG_FILTER_VISIBILITY_SETTING,serializeHiddenFilterTagUuids(hiddenTagUuids)); }
+        if (selected.has("profile.rules")) { if (state.plan!.strategy === "replace") { await database.prepare("DELETE FROM notification_preferences WHERE user_id=? AND kind='tag_rule' AND source_id<>''").run(uid); await database.prepare("DELETE FROM auto_tag_rules WHERE user_id=?").run(uid); } for (const row of get("profile.rules") ?? []) { if (row.type==="auto-tag") { const tagId=tagIds.get(row.tag_uuid)??await mappedObject(state.manifest.sourceInstallationId,"tag",row.tag_uuid); if (tagId && !await database.prepare("SELECT 1 FROM auto_tag_rules WHERE user_id=? AND tag_id=? AND lower(pattern)=lower(?) AND match_type=? AND field=?").get(uid,tagId,row.pattern,row.match_type,row.field)) await database.prepare("INSERT INTO auto_tag_rules(user_id,tag_id,pattern,match_type,field) VALUES(?,?,?,?,?)").run(uid,tagId,row.pattern,row.match_type,row.field); } } }
         if (selected.has("profile.playlists")) {
           if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM user_playlists WHERE user_id=?").run(uid);
           for (const row of get("profile.playlists") ?? []) {
@@ -462,15 +564,79 @@ export async function commitPortableRestore(adminId: number, id: string, revisio
             if (!playlistId) playlistId=Number((await database.prepare("INSERT INTO user_playlists(name,icon,sort_order,created_at,user_id,portable_uuid,offline_policy,download_quality) VALUES(?,?,?,?,?,?,?,?) RETURNING id").run(row.name,row.icon??"ListMusic",row.order??0,row.createdAt??new Date().toISOString(),uid,row.uuid,offlinePolicy,downloadQuality)).lastInsertRowid);
             else await database.prepare("UPDATE user_playlists SET name=?,icon=?,sort_order=?,offline_policy=?,download_quality=? WHERE id=? AND user_id=?").run(row.name,row.icon,row.order,offlinePolicy,downloadQuality,playlistId,uid);
             await saveMapping(state.manifest.sourceInstallationId,"playlist",row.uuid,playlistId);
-            for (const [videoIndex,video] of (row.videos??[]).entries()) if (await database.prepare("SELECT 1 FROM videos WHERE video_id=?").get(video.video_id)) await database.prepare("INSERT OR IGNORE INTO user_playlist_videos(playlist_id,video_id,added_at,position) VALUES(?,?,?,?)").run(playlistId,video.video_id,video.added_at??new Date().toISOString(),video.position??videoIndex);
+            for (const [videoIndex,video] of (row.videos??[]).entries()) if (knownVideoIds.has(video.video_id)) await database.prepare("INSERT OR IGNORE INTO user_playlist_videos(playlist_id,video_id,added_at,position) VALUES(?,?,?,?)").run(playlistId,video.video_id,video.added_at??new Date().toISOString(),video.position??videoIndex);
             for (const rule of row.rules??[]) if (!await database.prepare("SELECT 1 FROM user_playlist_rules WHERE playlist_id=? AND lower(pattern)=lower(?) AND match_type=? AND field=?").get(playlistId,rule.pattern,rule.match_type,rule.field)) await database.prepare("INSERT INTO user_playlist_rules(playlist_id,pattern,match_type,field) VALUES(?,?,?,?)").run(playlistId,rule.pattern,rule.match_type,rule.field);
           }
         }
-        if (selected.has("profile.video-state")) { if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM user_videos WHERE user_id=?").run(uid); for (const row of get("profile.video-state")??[]) if (await database.prepare("SELECT 1 FROM videos WHERE video_id=?").get(row.video_id)) { const playbackContext=await restorePlaybackContext(uid,row.playbackContext,tagIds); await database.prepare("INSERT INTO user_videos(user_id,video_id,status,bucket,queued_at,show_from,watch_position,watch_duration,watched,liked,playback_context_json) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,video_id) DO UPDATE SET status=excluded.status,bucket=excluded.bucket,queued_at=excluded.queued_at,show_from=excluded.show_from,watch_position=excluded.watch_position,watch_duration=excluded.watch_duration,watched=excluded.watched,liked=excluded.liked,playback_context_json=excluded.playback_context_json").run(uid,row.video_id,row.status??"inbox",row.bucket??null,row.queued_at??null,row.show_from??null,row.watch_position??null,row.watch_duration??null,row.watched??null,row.liked??null,playbackContext?JSON.stringify(playbackContext):null); } }
-        if (selected.has("profile.history")) { if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM history WHERE user_id=?").run(uid); for (const row of get("profile.history")??[]) if (await database.prepare("SELECT 1 FROM videos WHERE video_id=?").get(row.video_id) && !await database.prepare("SELECT 1 FROM history WHERE user_id=? AND video_id=? AND watched_at=?").get(uid,row.video_id,row.watched_at)) await database.prepare("INSERT INTO history(user_id,video_id,watched_at) VALUES(?,?,?)").run(uid,row.video_id,row.watched_at); }
-        if (selected.has("profile.bookmarks")) { if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM bookmarks WHERE user_id=?").run(uid); for (const row of get("profile.bookmarks")??[]) { const position=Number(row.position_seconds); if (typeof row.video_id!=="string" || !Number.isFinite(position) || position<0 || !await database.prepare("SELECT 1 FROM videos WHERE video_id=?").get(row.video_id)) { counts.skipped++; continue; } const uuid=typeof row.uuid==="string"&&UUID.test(row.uuid)?row.uuid:crypto.randomUUID(); await database.prepare("INSERT INTO bookmarks(portable_uuid,user_id,video_id,position_seconds,description,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(portable_uuid) DO UPDATE SET position_seconds=excluded.position_seconds,description=excluded.description,updated_at=excluded.updated_at").run(uuid,uid,row.video_id,Math.min(position,1_000_000_000),String(row.description??"").slice(0,2000),row.created_at??new Date().toISOString(),row.updated_at??row.created_at??new Date().toISOString()); } }
-        if (selected.has("profile.discovery-feedback")) { if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM recommendation_feedback WHERE user_id=?").run(uid); for (const row of get("profile.discovery-feedback")??[]) await database.prepare("INSERT INTO recommendation_feedback(user_id,video_id,action,created_at) VALUES(?,?,?,?) ON CONFLICT(user_id,video_id) DO UPDATE SET action=excluded.action,created_at=excluded.created_at").run(uid,row.video_id,row.action,row.created_at); }
-        if (selected.has("profile.analytics")) { if (state.plan!.strategy === "replace") for (const table of ["watch_time_log","scheduling_event_log","watch_tag_time_log","sponsorblock_skip_log"]) await database.prepare(`DELETE FROM ${table} WHERE user_id=?`).run(uid); for (const row of get("profile.analytics")??[]) { if(row.type==="watch-time") await database.prepare("INSERT INTO watch_time_log(user_id,video_id,day,hour,seconds) VALUES(?,?,?,?,?) ON CONFLICT(user_id,video_id,day,hour) DO UPDATE SET seconds=max(watch_time_log.seconds,excluded.seconds)").run(uid,row.video_id,row.day,row.hour,row.seconds); else if(row.type==="scheduling" && !await database.prepare("SELECT 1 FROM scheduling_event_log WHERE user_id=? AND video_id=? AND created_at=?").get(uid,row.video_id,row.created_at)) await database.prepare("INSERT INTO scheduling_event_log(user_id,video_id,channel_id,bucket,source,tags_json,local_day,local_hour,created_at) VALUES(?,?,?,?,?,?,?,?,?)").run(uid,row.video_id,row.channel_id,row.bucket,row.source,row.tags_json,row.local_day,row.local_hour,row.created_at); else if(row.type==="tag-time") { const tagId=(await database.prepare("SELECT id FROM tags WHERE user_id=? AND name=? COLLATE NOCASE").get(uid,row.tag_name) as any)?.id??stableNegativeId(`${state.manifest.sourceInstallationId}:${row.tag_name}`); await database.prepare("INSERT INTO watch_tag_time_log(user_id,tag_id,tag_name,tag_color,day,hour,seconds) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,tag_id,day,hour) DO UPDATE SET seconds=max(watch_tag_time_log.seconds,excluded.seconds)").run(uid,tagId,row.tag_name,row.tag_color,row.day,row.hour,row.seconds); } else if(row.type==="sponsorblock") await database.prepare("INSERT OR IGNORE INTO sponsorblock_skip_log(event_id,user_id,video_id,segment_uuid,category,skipped_seconds,day,created_at) VALUES(?,?,?,?,?,?,?,?)").run(row.event_id,uid,row.video_id,row.segment_uuid,row.category,row.skipped_seconds,row.day,row.created_at); } }
+        if (selected.has("profile.video-state")) {
+          if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM user_videos WHERE user_id=?").run(uid);
+          const rows: unknown[][] = [];
+          for (const row of get("profile.video-state") ?? []) {
+            if (!knownVideoIds.has(row.video_id)) continue;
+            const playbackContext = await restorePlaybackContext(uid, row.playbackContext, tagIds);
+            rows.push([uid, row.video_id, row.status ?? "inbox", row.bucket ?? null, row.queued_at ?? null, row.show_from ?? null, row.watch_position ?? null, row.watch_duration ?? null, row.watched ?? null, row.liked ?? null, playbackContext ? JSON.stringify(playbackContext) : null]);
+          }
+          for (const batch of chunks(rows)) await database.prepare(`INSERT INTO user_videos(user_id,video_id,status,bucket,queued_at,show_from,watch_position,watch_duration,watched,liked,playback_context_json) VALUES ${batch.map(() => "(?,?,?,?,?,?,?,?,?,?,?)").join(",")}
+            ON CONFLICT(user_id,video_id) DO UPDATE SET status=excluded.status,bucket=excluded.bucket,queued_at=excluded.queued_at,show_from=excluded.show_from,watch_position=excluded.watch_position,watch_duration=excluded.watch_duration,watched=excluded.watched,liked=excluded.liked,playback_context_json=excluded.playback_context_json`)
+            .run(...batch.flat());
+        }
+        if (selected.has("profile.history")) {
+          if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM history WHERE user_id=?").run(uid);
+          const existing = new Set((await database.prepare("SELECT video_id, watched_at FROM history WHERE user_id=?").all(uid) as Array<{ video_id: string; watched_at: string }>).map((row) => `${row.video_id}@${row.watched_at}`));
+          const rows: unknown[][] = [];
+          for (const row of get("profile.history") ?? []) {
+            const key = `${row.video_id}@${row.watched_at}`;
+            if (!knownVideoIds.has(row.video_id) || existing.has(key)) continue;
+            existing.add(key);
+            rows.push([uid, row.video_id, row.watched_at]);
+          }
+          for (const batch of chunks(rows)) await database.prepare(`INSERT INTO history(user_id,video_id,watched_at) VALUES ${batch.map(() => "(?,?,?)").join(",")}`).run(...batch.flat());
+        }
+        if (selected.has("profile.bookmarks")) {
+          if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM bookmarks WHERE user_id=?").run(uid);
+          const rows: unknown[][] = [];
+          for (const row of get("profile.bookmarks") ?? []) {
+            const position = Number(row.position_seconds);
+            if (typeof row.video_id !== "string" || !Number.isFinite(position) || position < 0 || !knownVideoIds.has(row.video_id)) { counts.skipped++; continue; }
+            const uuid = typeof row.uuid === "string" && UUID.test(row.uuid) ? row.uuid : crypto.randomUUID();
+            rows.push([uuid, uid, row.video_id, Math.min(position, 1_000_000_000), String(row.description ?? "").slice(0, 2000), row.created_at ?? new Date().toISOString(), row.updated_at ?? row.created_at ?? new Date().toISOString()]);
+          }
+          for (const batch of chunks(rows)) await database.prepare(`INSERT INTO bookmarks(portable_uuid,user_id,video_id,position_seconds,description,created_at,updated_at) VALUES ${batch.map(() => "(?,?,?,?,?,?,?)").join(",")}
+            ON CONFLICT(portable_uuid) DO UPDATE SET position_seconds=excluded.position_seconds,description=excluded.description,updated_at=excluded.updated_at`)
+            .run(...batch.flat());
+        }
+        if (selected.has("profile.discovery-feedback")) {
+          if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM recommendation_feedback WHERE user_id=?").run(uid);
+          const rows = (get("profile.discovery-feedback") ?? []).map((row: any) => [uid, row.video_id, row.action, row.created_at]);
+          for (const batch of chunks(rows)) await database.prepare(`INSERT INTO recommendation_feedback(user_id,video_id,action,created_at) VALUES ${batch.map(() => "(?,?,?,?)").join(",")} ON CONFLICT(user_id,video_id) DO UPDATE SET action=excluded.action,created_at=excluded.created_at`)
+            .run(...batch.flat());
+        }
+        if (selected.has("profile.analytics")) {
+          if (state.plan!.strategy === "replace") for (const table of ["watch_time_log","scheduling_event_log","watch_tag_time_log","sponsorblock_skip_log"]) await database.prepare(`DELETE FROM ${table} WHERE user_id=?`).run(uid);
+          const schedulingKeys = new Set((await database.prepare("SELECT video_id, created_at FROM scheduling_event_log WHERE user_id=?").all(uid) as Array<{ video_id: string; created_at: string }>).map((row) => `${row.video_id}@${row.created_at}`));
+          const tagIdsByName = new Map<string, number>();
+          for (const tag of await database.prepare("SELECT id, name FROM tags WHERE user_id=?").all(uid) as Array<{ id: number; name: string }>) {
+            const key = String(tag.name).toLowerCase();
+            if (!tagIdsByName.has(key)) tagIdsByName.set(key, Number(tag.id));
+          }
+          const watchTime: unknown[][] = [], scheduling: unknown[][] = [], tagTime: unknown[][] = [], sponsorblock: unknown[][] = [];
+          for (const row of get("profile.analytics") ?? []) {
+            if (row.type === "watch-time") watchTime.push([uid, row.video_id, row.day, row.hour, row.seconds]);
+            else if (row.type === "scheduling") {
+              const key = `${row.video_id}@${row.created_at}`;
+              if (schedulingKeys.has(key)) continue;
+              schedulingKeys.add(key);
+              scheduling.push([uid, row.video_id, row.channel_id, row.bucket, row.source, row.tags_json, row.local_day, row.local_hour, row.created_at]);
+            } else if (row.type === "tag-time") {
+              const tagId = tagIdsByName.get(String(row.tag_name).toLowerCase()) ?? stableNegativeId(`${state.manifest.sourceInstallationId}:${row.tag_name}`);
+              tagTime.push([uid, tagId, row.tag_name, row.tag_color, row.day, row.hour, row.seconds]);
+            } else if (row.type === "sponsorblock") sponsorblock.push([row.event_id, uid, row.video_id, row.segment_uuid, row.category, row.skipped_seconds, row.day, row.created_at]);
+          }
+          for (const batch of chunks(watchTime)) await database.prepare(`INSERT INTO watch_time_log(user_id,video_id,day,hour,seconds) VALUES ${batch.map(() => "(?,?,?,?,?)").join(",")} ON CONFLICT(user_id,video_id,day,hour) DO UPDATE SET seconds=max(watch_time_log.seconds,excluded.seconds)`).run(...batch.flat());
+          for (const batch of chunks(scheduling)) await database.prepare(`INSERT OR IGNORE INTO scheduling_event_log(user_id,video_id,channel_id,bucket,source,tags_json,local_day,local_hour,created_at) VALUES ${batch.map(() => "(?,?,?,?,?,?,?,?,?)").join(",")}`).run(...batch.flat());
+          for (const batch of chunks(tagTime)) await database.prepare(`INSERT INTO watch_tag_time_log(user_id,tag_id,tag_name,tag_color,day,hour,seconds) VALUES ${batch.map(() => "(?,?,?,?,?,?,?)").join(",")} ON CONFLICT(user_id,tag_id,day,hour) DO UPDATE SET seconds=max(watch_tag_time_log.seconds,excluded.seconds)`).run(...batch.flat());
+          for (const batch of chunks(sponsorblock)) await database.prepare(`INSERT OR IGNORE INTO sponsorblock_skip_log(event_id,user_id,video_id,segment_uuid,category,skipped_seconds,day,created_at) VALUES ${batch.map(() => "(?,?,?,?,?,?,?,?)").join(",")}`).run(...batch.flat());
+        }
         const sourceProfile = (data.get("profiles.index:")??[]).find((p:any)=>p.id===profile.id); if (selected.has("profile.avatar") && sourceProfile?.avatar && entries.has(sourceProfile.avatar)) { const nextFileName=`${uid}.webp`, stage=resolve(sessionPaths(id).dir,`avatar-${uid}.webp.stage`), target=resolve(AVATAR_DIR,nextFileName), previous=((await database.prepare("SELECT avatar FROM users WHERE id=?").get(uid) as { avatar: string } | null)?.avatar ?? ""); writeFileSync(stage,await optimizeProfileAvatar(entries.get(sourceProfile.avatar)!)); await database.prepare("UPDATE users SET avatar=? WHERE id=?").run(optimizedProfileAvatarToken(uid),uid); avatarStages.push({from:stage,to:target,previous,nextFileName}); }
       }
       if (selected.has("plugin.social.activity")) {
@@ -486,7 +652,7 @@ export async function commitPortableRestore(adminId: number, id: string, revisio
         const validId = (value: unknown) => typeof value === "string" && UUID.test(value);
         for (const row of doc.posts ?? []) {
           const authorId = profileIds.get(row.authorProfileId);
-          if (!authorId || !validId(row.id) || typeof row.video_id !== "string" || !await database.prepare("SELECT 1 FROM videos WHERE video_id=?").get(row.video_id)) { counts.skipped++; continue; }
+          if (!authorId || !validId(row.id) || typeof row.video_id !== "string" || !knownVideoIds.has(row.video_id)) { counts.skipped++; continue; }
           await database.prepare("INSERT OR IGNORE INTO social_posts(id,author_user_id,video_id,body,created_at,updated_at) VALUES(?,?,?,?,?,?)").run(row.id,authorId,row.video_id,String(row.body??"").slice(0,1000),row.created_at??new Date().toISOString(),row.updated_at??row.created_at??new Date().toISOString());
         }
         for (const row of doc.comments ?? []) {
@@ -513,6 +679,11 @@ export async function commitPortableRestore(adminId: number, id: string, revisio
           if (mentionedId && validId(row.comment_id) && await database.prepare("SELECT 1 FROM social_comments WHERE id=?").get(row.comment_id)) await database.prepare("INSERT OR IGNORE INTO social_comment_mentions(comment_id,mentioned_user_id,token) VALUES(?,?,?)").run(row.comment_id,mentionedId,String(row.token??"").slice(0,81));
         }
       }
+      for (const batch of chunks(pendingMappings)) {
+        await database.prepare(`INSERT INTO portable_object_mappings(source_installation_id,object_type,source_uuid,local_id) VALUES ${batch.map(() => "(?,?,?,?)").join(",")}
+          ON CONFLICT(source_installation_id,object_type,source_uuid) DO UPDATE SET local_id=excluded.local_id`)
+          .run(...batch.flatMap(([type, uuid, localId]) => [state.manifest.sourceInstallationId, type, uuid, localId]));
+      }
     }); await tx();
     await reloadSettingCache();
     if (selected.has("instance.settings")) {
@@ -520,7 +691,7 @@ export async function commitPortableRestore(adminId: number, id: string, revisio
       const now = new Date();
       for (const bucket of SCHEDULE_BUCKETS) await database.prepare("UPDATE user_videos SET show_from=? WHERE status='queued' AND bucket=?").run(computeShowFrom(bucket, now, timeZone), bucket);
     }
-    mkdirSync(AVATAR_DIR,{recursive:true}); for(const file of avatarStages) { renameSync(file.from,file.to); removeStoredProfileAvatar(file.previous,file.nextFileName,AVATAR_DIR); } rmSync(sessionPaths(id).dir,{recursive:true,force:true}); return { ok:true, snapshot, counts };
+    mkdirSync(AVATAR_DIR,{recursive:true}); for(const file of avatarStages) { renameSync(file.from,file.to); removeStoredProfileAvatar(file.previous,file.nextFileName,AVATAR_DIR); } rmSync(sessionPaths(id).dir,{recursive:true,force:true}); prunePreRestoreSnapshots(safetyDir); return { ok:true, snapshot, counts };
   } catch (error) {
     for (const file of avatarStages) try { rmSync(file.from, { force: true }); } catch {}
     // Plugin adapters can refresh the synchronous settings cache from inside
@@ -528,6 +699,6 @@ export async function commitPortableRestore(adminId: number, id: string, revisio
     // committed values so reads cannot observe data that never committed.
     await reloadSettingCache();
     throw error;
-  } finally { releaseMaintenance(); }
+  } finally { activeRestoreSessions.delete(id); releaseMaintenance(); }
 }
 export function deleteRestoreSession(adminId: number, id: string) { loadSession(id, adminId); rmSync(sessionPaths(id).dir, { recursive: true, force: true }); }

@@ -34,7 +34,7 @@ export function queueSettingWrite(
 ) {
   const delayed = pending.get(key);
   if (delayed) {
-    window.clearTimeout(delayed.timer);
+    clearTimeout(delayed.timer);
     pending.delete(key);
   }
   enqueueSettingWrite(key, patch, options);
@@ -51,13 +51,13 @@ export function scheduleSettingWrite(
   options: { delay?: number; onSaved?: () => void; onError?: (error: unknown) => void } = {},
 ) {
   const previous = pending.get(key);
-  if (previous) window.clearTimeout(previous.timer);
+  if (previous) clearTimeout(previous.timer);
 
   const entry: PendingSettingWrite = {
     patch,
     onSaved: options.onSaved,
     onError: options.onError,
-    timer: window.setTimeout(() => {
+    timer: setTimeout(() => {
       if (pending.get(key) !== entry) return;
       pending.delete(key);
       enqueueSettingWrite(key, entry.patch, entry);

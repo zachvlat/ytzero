@@ -3,7 +3,6 @@ import { classifyIsShort, fetchAllChannelStreams, fetchAllChannelVideos, fetchCh
 import { MetadataCookieFallbackBudget } from "./videoMetadataFallback";
 import { applyAutoTags } from "./autotags";
 import { applyPlaylistRulesToVideo } from "./userPlaylists";
-import { applyFilterRules } from "./filterRules";
 import { log } from "./logger";
 import { CHANNEL_PLAYLIST_CACHE_VERSION, ensureChannelPlaylist, saveChannelPlaylists, savePlaylistMemberships } from "./channelPlaylists";
 import { preserveChannelMedia, preservePlaylistMedia } from "./channelMedia";
@@ -298,7 +297,6 @@ export async function importPlaylistVideos(playlistId: string, force = false, us
       );
       if (isNew) {
         tagRuleMatches.push({ videoId: v.videoId, matches: await applyAutoTags(v.videoId, rich?.title || v.title, rich?.description || "") });
-        await applyFilterRules(v.videoId, ownerChannelId, rich?.title || v.title, rich?.description || "");
         await applyPlaylistRulesToVideo(v.videoId);
         await inheritChannelTags.run(v.videoId, ownerChannelId);
         added++;
@@ -381,7 +379,6 @@ export async function refreshChannel(channelId: string, userId?: number): Promis
     await upsertVideo.run(v.videoId, channelId, v.title, v.description, v.thumbnail, v.publishedAt, v.views, v.likes);
     if (isNew) {
       await notifyTagRuleMatches(v.videoId, await applyAutoTags(v.videoId, v.title, v.description));
-      await applyFilterRules(v.videoId, channelId, v.title, v.description);
       await applyPlaylistRulesToVideo(v.videoId);
       await inheritChannelTags.run(v.videoId, channelId);
       added++; discoveredVideoIds.push(v.videoId);
@@ -808,7 +805,6 @@ async function runChannelSync(channelId: string, userId?: number): Promise<Chann
     }
     if (isNew) {
       await notifyTagRuleMatches(v.videoId, await applyAutoTags(v.videoId, rss?.title ?? v.title, rss?.description ?? ""));
-      await applyFilterRules(v.videoId, channelId, rss?.title ?? v.title, rss?.description ?? "");
       await applyPlaylistRulesToVideo(v.videoId);
       await inheritChannelTags.run(v.videoId, channelId);
       added++; discoveredVideoIds.push(v.videoId);
@@ -825,7 +821,6 @@ async function runChannelSync(channelId: string, userId?: number): Promise<Chann
     await upsertVideo.run(v.videoId, channelId, v.title, v.description, v.thumbnail, v.publishedAt, v.views, v.likes);
     if (isNew) {
       await notifyTagRuleMatches(v.videoId, await applyAutoTags(v.videoId, v.title, v.description));
-      await applyFilterRules(v.videoId, channelId, v.title, v.description);
       await applyPlaylistRulesToVideo(v.videoId);
       await inheritChannelTags.run(v.videoId, channelId);
       added++; discoveredVideoIds.push(v.videoId);

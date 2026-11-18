@@ -1,3 +1,5 @@
+export { addCalendarDays } from "../../shared/calendarDays";
+
 export const DEFAULT_TIME_ZONE = "UTC";
 
 let timeZoneProvider: () => string = () => DEFAULT_TIME_ZONE;
@@ -81,12 +83,6 @@ export function formatZonedTimestamp(date = new Date(), timeZone = configuredTim
   const rawOffset = parts.timeZoneName.replace("GMT", "");
   const offset = rawOffset === "" || rawOffset === "+00:00" || rawOffset === "-00:00" ? "Z" : rawOffset;
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.${parts.fractionalSecond}${offset}`;
-}
-
-export function addCalendarDays(day: string, offsetDays: number): string {
-  const date = new Date(`${day}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
 }
 
 /** Convert a wall-clock time in an IANA zone to its UTC instant. */

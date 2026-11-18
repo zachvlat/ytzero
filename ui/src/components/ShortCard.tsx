@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { MouseEvent } from "react";
-import { Archive, Check, Eye, EyeOff, Heart, Lock, Star } from "lucide-react";
+import { Check, Eye, EyeOff, Heart, Lock, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, type Video } from "../api";
 import { formatTimeAgo, formatViewsCount, useI18n } from "../i18n";
@@ -9,12 +9,9 @@ import Tooltip from "./Tooltip";
 import { Badge } from "./ui";
 import "./VideoCard.css";
 
-const EXIT_MS = 320;
-
 export default function ShortCard({
   video,
   onPlay,
-  onRemoved,
   onWatched,
   onLiked,
   isWatched,
@@ -22,7 +19,6 @@ export default function ShortCard({
 }: {
   video: Video;
   onPlay: (v: Video) => void;
-  onRemoved: (videoId: string) => void;
   onWatched: (videoId: string, watched: boolean) => void;
   onLiked: (videoId: string, liked: boolean) => void;
   isWatched: boolean;
@@ -32,7 +28,6 @@ export default function ShortCard({
   // YouTube serves a vertical 9:16 thumbnail for Shorts under oardefault.jpg;
   // fall back to the regular 16:9 feed thumbnail (cover-cropped) if it 404s.
   const [portraitFailed, setPortraitFailed] = useState(false);
-  const [leaving, setLeaving] = useState(false);
 
   const thumbSrc = portraitFailed
     ? videoThumbnail(video.thumbnail)
@@ -44,16 +39,6 @@ export default function ShortCard({
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
     onPlay(video);
-  };
-
-  const removeWith = (fn: () => Promise<unknown>) => (e: MouseEvent) => {
-    e.stopPropagation();
-    fn()
-      .then(() => {
-        setLeaving(true);
-        setTimeout(() => onRemoved(video.video_id), EXIT_MS);
-      })
-      .catch(() => {});
   };
 
   const toggleLike = (e: MouseEvent) => {
@@ -82,7 +67,7 @@ export default function ShortCard({
   const meta = [views, timeAgo].filter(Boolean).join(" · ");
 
   return (
-    <div className={`short-card${isWatched ? " short-card--watched" : ""}${leaving ? " short-card--leaving" : ""}`}>
+    <div className={`short-card${isWatched ? " short-card--watched" : ""}`}>
       <Tooltip text={video.title} pos="top" delay={450} className="tooltip-wrap--block tooltip-wrap--title short-card-thumb-tooltip">
         <Link to={videoHref} className="short-card-thumb" onClick={play} aria-label={video.title}>
           <img
@@ -128,17 +113,10 @@ export default function ShortCard({
               <EyeOff size={16} />
             </button>
           </Tooltip>
-        ) : video.status !== "archived" ? (
+        ) : (
           <Tooltip text={t("markWatched")}>
             <button className="sc-btn" onClick={markWatched}>
               <Eye size={16} />
-            </button>
-          </Tooltip>
-        ) : null}
-        {video.status !== "archived" && (
-          <Tooltip text={t("reject")}>
-            <button className="sc-btn" onClick={removeWith(() => api.archiveVideo(video.video_id))}>
-              <Archive size={16} />
             </button>
           </Tooltip>
         )}

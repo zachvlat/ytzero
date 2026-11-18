@@ -4,14 +4,12 @@ import { surfaceMessages } from "./surfaceMessages";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { feedBuilderMessages } from "./feedBuilder";
-import { tvPairingMessages } from "./tvPairing";
 // English defines the message keys; `pl` and `de` are type-checked against them.
 export const en = {
   messages: {
     ...surfaceMessages.en,
     ...clusterMessages.en,
     ...notificationMessages.en,
-    ...tvPairingMessages.en,
     ...feedBuilderMessages.en,
     navToday: "Main",
     navSocial: "Social",

@@ -11,7 +11,6 @@ import { log } from "../logger";
 import { isValidTimeZone } from "../timeZone";
 import { computeShowFrom, SCHEDULE_BUCKETS } from "../scheduleTime";
 import { refreshDiscoveryInBackground } from "../plugins";
-import { cancelAutoDownloadIfUnwanted } from "../downloader";
 import { childHidesLive, isChildUser } from "../childTime";
 import { CHANNEL_PLAYLIST_CACHE_VERSION, saveChannelPlaylists } from "../channelPlaylists";
 import { isChannelManualStatus } from "../channelStatus";
@@ -204,6 +203,9 @@ api.delete("/channels/:id/tags/:tagId", async (c) => {
   const uid = currentUserId(c);
   const channelId = c.req.param("id");
   const tagId = c.req.param("tagId");
+  if (!await database.prepare("SELECT 1 FROM tags WHERE id = ? AND user_id = ?").get(tagId, uid)) {
+    return c.json({ error: "tag not found" }, 404);
+  }
   await database.prepare("DELETE FROM channel_tags WHERE channel_id = ? AND tag_id = ?").run(channelId, tagId);
   // Remove channel-propagated tags from videos (keep manually added ones)
   await database.prepare(

@@ -1,111 +1,123 @@
 {
   "releases": [
     {
-      "version": "2026.08.34",
-      "name": "2026.08.34 — Fixed version",
-      "publishedAt": "2026-08-21T22:39:43Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.34",
+      "version": "2026.09.9",
+      "name": "2026.09.9 - From Couch to Channel",
+      "publishedAt": "2026-09-28T17:33:16Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.09.9",
       "notes": [
-        "Fixed version (`4c30ed8`)",
-        "Bigger downloads limit (`e9a63b7`)",
-        "Hide tag in filters (`653a72b`)",
-        "Persist yt-dlp channel versions [#189](https://github.com/Pelski/ytzero/issues/189) (`32475d1`)",
-        "Keep downloads [#193](https://github.com/Pelski/ytzero/issues/193) (`7742135`)",
-        "Fixed versioning (43fceda)"
-      ],
-      "current": true
-    },
-    {
-      "version": "2026.08.32",
-      "name": "2026.08.32 — Fixed click to start video bounding box #192",
-      "publishedAt": "2026-08-19T22:57:59Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.32",
-      "notes": [
-        "Fixed click to start video bounding box #192 (`330100e`)"
+        "**Off** leaves channel pages unchanged.",
+        "**Recent uploads** performs a quick check for the newest videos.",
+        "**Full history** performs a deeper sync to find older content too.",
+        "Global caption settings now reliably keep captions off when that is your preference.",
+        "Fullscreen keyboard handling is more reliable on the watch page.",
+        "Player focus and interaction details have been refined for a smoother overall viewing experience."
       ]
     },
     {
-      "version": "2026.08.31",
-      "name": "2026.08.31 — Added option to update yt-dlp from UI",
-      "publishedAt": "2026-08-19T08:24:15Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.31",
+      "version": "2026.09.8",
+      "name": "2026.09.8 - Share, Watch, and Stay in Control",
+      "publishedAt": "2026-09-09T09:28:04Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.09.8",
+      "notes": []
+    },
+    {
+      "version": "2026.09.7",
+      "name": "2026.09.7 - Smarter Sync, Wider Alerts",
+      "publishedAt": "2026-09-07T14:24:32Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.09.7",
       "notes": [
-        "Added option to update yt-dlp from UI (`519e1e6`)"
+        "TubeArchivist watch status now syncs both ways, including changes back to unwatched, while video cards show when a video is already available in your archive.",
+        "Notifications now support followed channels, automatic tag rules, and per-source overrides.",
+        "Forward notifications externally through Apprise, webhooks, or ntfy, with per-profile delivery targets and a built-in test notification.",
+        "Includes small polish and stability improvements throughout the app."
       ]
     },
     {
-      "version": "2026.08.30",
-      "name": "2026.08.30 — Fixed loading issue #175",
-      "publishedAt": "2026-08-17T10:00:23Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.30",
+      "version": "2026.09.6",
+      "name": "2026.09.6 - Smarter Playlist Playback",
+      "publishedAt": "2026-09-06T22:51:11Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.09.6",
+      "notes": []
+    },
+    {
+      "version": "2026.09.5",
+      "name": "2026.09.5 - Control Your Queue, Scale Your Library",
+      "publishedAt": "2026-09-03T22:29:09Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.09.5",
       "notes": [
-        "Fixed loading issue #175 (`95dcb62`)"
+        "PostgreSQL deployments can now scale with coordinated HTTP replicas and a single background worker, plus a new Cluster settings dashboard.",
+        "Downloads are easier to manage: pin completed files, browse them by playlist, and automatically download or protect followed playlists.",
+        "Video-card scheduling controls can now be hidden from settings.",
+        "Polished the feed with corrected avatar layout and smaller interface fixes."
       ]
     },
     {
-      "version": "2026.08.29",
-      "name": "2026.08.29 — Improvements to playlists - fixed #153 and #159",
-      "publishedAt": "2026-08-15T23:27:31Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.29",
+      "version": "2026.09.3",
+      "name": "2026.09.3 - Downloads That Stay, Deployments That Scale",
+      "publishedAt": "2026-09-03T12:26:59Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.09.3",
       "notes": [
-        "Improvements to playlists - fixed #153 and #159 (`2d1f765`)"
+        "Pin downloads to keep them safe from automatic cleanup, or enable playlist-based offline availability with optional cleanup protection. The Downloads library now includes search, a kept-items filter, and playlist grouping.",
+        "Run YT Zero on clustered PostgreSQL deployments with coordinated HTTP replicas and a single background worker, including cluster health and status visibility.",
+        "Customize video cards further: hide the scheduling row and add an action to switch directly between video and audio playback modes.",
+        "Corrected French translations across the server and interface.",
+        "Includes small internal fixes and polish for a smoother overall experience."
       ]
     },
     {
-      "version": "2026.08.28",
-      "name": "2026.08.28 — Improvements to experimental streaming",
-      "publishedAt": "2026-08-13T23:49:11Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.28",
+      "version": "2026.09.2",
+      "name": "2026.09.2 - Native Installs, Ready to Go",
+      "publishedAt": "2026-09-02T22:34:19Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.09.2",
       "notes": [
-        "Improvements to experimental streaming (`ebe8745`)",
-        "Seeking far into a long recording fixed #152 (`ba378b9`)",
-        "Added Deno to Docker image for yt-dlp cool features #151 (`dcd3509`)",
-        "Improvements to audio mode - better livestreams support #150 (`2f75538`)",
-        "Transcript improvements (`6910527`)",
-        "Fixed player flickering in some scenarios #148 (`15eae97`)",
-        "Random UUID fix for HTTP connection #147 (`b8124bb`)",
-        "Deleted video recognition mechanism #146 (`fd8d98e`)",
-        "Remember audio mode in browser and new way to check for audio track for better performance (`9340162`)"
+        "Native Linux and Proxmox installations now have the complete release archive they need to install and update successfully.",
+        "GitHub releases now include a versioned native package with the built web client, application source, lockfile, version metadata, and a SHA-256 checksum for verification."
       ]
     },
     {
-      "version": "2026.08.27",
-      "name": "2026.08.27 — CodeQL fixes",
-      "publishedAt": "2026-08-13T12:50:34Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.27",
+      "version": "2026.09.1",
+      "name": "2026.09.1 - Watch Your Way",
+      "publishedAt": "2026-09-02T22:00:41Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.09.1",
       "notes": [
-        "CodeQL fixes (`0d648ef`)",
-        "More options for a comment section #144 (`6b144fa`)",
-        "More shortcuts and ability to change them #138 (`c118df1`)",
-        "Improved audio-only design on mobile (`0050a89`)"
+        "Build a temporary play queue for the current browser tab, then save it as a personal playlist whenever you like.",
+        "Choose which channels and playlists can notify you, independently of your general notification settings.",
+        "Set custom playback-speed options up to 4×.",
+        "Manage household access with profile groups and a detailed permission matrix.",
+        "Use YT Zero in French, Spanish, Brazilian Portuguese, Russian, Japanese, or Hungarian—alongside English, Polish, and German. The interface and playlist titles now consistently follow your profile language.",
+        "Keep incognito viewing out of related-video recommendations for stronger privacy.",
+        "Stream subtitles on demand without creating files on disk, while keeping downloaded and TubeArchivist subtitles available offline.",
+        "Improve direct playback for cookie-authenticated yt-dlp streams and reduce memory use with TubeArchivist."
       ]
     },
     {
-      "version": "2026.08.26",
-      "name": "2026.08.26 — Improved audio-only design on mobile",
-      "publishedAt": "2026-08-12T23:26:39Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.26",
+      "version": "2026.08.36",
+      "name": "2026.08.36 - Queue It, Watch It Your Way",
+      "publishedAt": "2026-08-25T15:13:56Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.36",
       "notes": [
-        "Improved audio-only design on mobile (`d52bda3`)"
+        "Build a session play queue from video cards and suggestions, play items in order, and save the queue as a personal playlist whenever you want to keep it.",
+        "Stream available subtitles on demand in the local and direct players—without downloading video files or writing subtitle sidecars to disk. Existing downloaded subtitles remain available offline.",
+        "Choose the interface language per profile: French, Spanish, Brazilian Portuguese, Russian, and Japanese join English, Polish, and German.",
+        "Enjoy a set of small visual and interaction refinements, including an improved play-queue menu and watch-page controls."
       ]
     },
     {
-      "version": "2026.08.25",
-      "name": "2026.08.25 — From now on you can play videos and watch livestreams in audio-only mode #141",
-      "publishedAt": "2026-08-12T23:10:28Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.25",
+      "version": "2026.08.35",
+      "name": "2026.08.35 - YT Zero",
+      "publishedAt": "2026-08-25T12:14:28Z",
+      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.35",
       "notes": [
-        "From now on you can play videos and watch livestreams in audio-only mode #141 (`b248771`)",
-        "Add an audio-only background listening mode (#142) (`1da3615`)"
-      ]
-    },
-    {
-      "version": "2026.08.24",
-      "name": "2026.08.24 — One-click deployments are now better",
-      "publishedAt": "2026-08-12T09:39:43Z",
-      "url": "https://github.com/Pelski/ytzero/releases/tag/2026.08.24",
-      "notes": [
-        "One-click deployments are now better (`cee351f`)"
+        "Start downloads, scheduling, or playlist additions directly from YouTube search results.",
+        "Choose video or audio when starting or continuing a playlist. Audio mode now uses completed local downloads, continues across playlist tracks, and has improved iOS lock-screen playback and buffering.",
+        "Added **Direct stream** as a remote-player option: play a compatible video through YT Zero without creating a download. It can also take over when the YouTube embed is unavailable.",
+        "Local-player subtitles now show only tracks actually available for the video, with sensible language fallbacks.",
+        "Added video bookmarks with timestamps and notes.",
+        "New videos that need importing now show a loading state before the selected player is ready.",
+        "YouTube pages and search metadata now follow the app language, including improved localized count and date parsing.",
+        "Reduced unnecessary YouTube traffic with backoff for Shorts classification and temporary address-level refusals.",
+        "General performance and build-loading improvements."
       ]
     }
   ]

@@ -27,9 +27,7 @@ describe("video card action configuration", () => {
       { id: "playlist", hidden: true },
       { id: "sessionQueue", hidden: false },
       { id: "download", hidden: true },
-      { id: "archive", hidden: false },
       { id: "watched", hidden: false },
-      { id: "restore", hidden: false },
       { id: "remove", hidden: false },
       { id: "otherPlaybackMode", hidden: true },
     ]);
@@ -42,22 +40,22 @@ describe("video card action configuration", () => {
 
   test("normalizes malformed backup values to the default", () => {
     const actions = JSON.parse(normalizeVideoCardActionConfig("bad json")).actions;
-    expect(actions).toHaveLength(9);
+    expect(actions).toHaveLength(7);
     expect(actions.filter((action: { hidden: boolean }) => action.hidden).map((action: { id: string }) => action.id)).toEqual(["playlist", "download", "otherPlaybackMode"]);
   });
 
   test("accepts and preserves a browser save containing sessionQueue", () => {
     const browserConfig = {
       version: 1,
-      actions: VIDEO_CARD_ACTION_IDS.map((id) => ({ id, hidden: id === "archive" })).reverse(),
+      actions: VIDEO_CARD_ACTION_IDS.map((id) => ({ id, hidden: id === "watched" })).reverse(),
     } as const;
     const browserValue = JSON.stringify(browserConfig);
 
     expect(validateVideoCardSettings({ video_card_action_buttons: browserValue })).toBeNull();
     expect(parseVideoCardActionConfig(browserValue)?.actions.map((action) => action.id)).toEqual([
-      "schedule", "otherPlaybackMode", "remove", "restore", "watched", "archive", "download", "playlist", "sessionQueue",
+      "schedule", "otherPlaybackMode", "remove", "watched", "download", "playlist", "sessionQueue",
     ]);
-    expect(JSON.parse(normalizeVideoCardActionConfig(browserValue)).actions.find((action: { id: string }) => action.id === "archive")?.hidden).toBe(true);
+    expect(JSON.parse(normalizeVideoCardActionConfig(browserValue)).actions.find((action: { id: string }) => action.id === "watched")?.hidden).toBe(true);
   });
 
   test("uses the shared complete default", () => {
@@ -65,8 +63,8 @@ describe("video card action configuration", () => {
   });
 
   test("keeps destructive recovery actions visible while preserving schedule visibility", () => {
-    const config = parseVideoCardActionConfig({ version: 1, actions: [{ id: "restore", hidden: true }, { id: "remove", hidden: true }, { id: "schedule", hidden: true }] });
-    expect(config?.actions.slice(0, 3)).toEqual([{ id: "schedule", hidden: true }, { id: "restore", hidden: false }, { id: "remove", hidden: false }]);
+    const config = parseVideoCardActionConfig({ version: 1, actions: [{ id: "remove", hidden: true }, { id: "schedule", hidden: true }] });
+    expect(config?.actions.slice(0, 2)).toEqual([{ id: "schedule", hidden: true }, { id: "remove", hidden: false }]);
   });
 });
 

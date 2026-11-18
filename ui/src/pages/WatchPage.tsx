@@ -3,7 +3,6 @@ import "./WatchPage.css";
 import { emitToast } from "../events";
 import { Link } from "react-router-dom";
 import {
-  Archive,
   AlertTriangle,
   ArrowDownToLine,
   Bookmark,
@@ -29,7 +28,6 @@ import {
   SkipForward,
   ThumbsUp,
   Trash2,
-  Undo2,
   UsersRound,
 } from "lucide-react";
 import { api, SB_CATEGORIES } from "../api";
@@ -709,15 +707,6 @@ export default function WatchPage() {
                       <button className="more-item-wide" onClick={openPlaylistMenu}>
                         <BookmarkPlus /> {t("addToPlaylist")}
                       </button>
-                      {video.status !== "archived" ? (
-                        <button className="more-item-always" onClick={() => { api.archiveVideo(video.video_id).then(reload); setMoreOpen(false); }}>
-                          <Archive /> {t("rejectVideo")}
-                        </button>
-                      ) : (
-                        <button className="more-item-always" onClick={() => { api.restore(video.video_id).then(reload); setMoreOpen(false); }}>
-                          <Undo2 /> {t("restoreRejectedVideo")}
-                        </button>
-                      )}
                       <div className="more-menu-section">
                         <MenuSeparator />
                         <button className="more-item-always" onClick={() => { setTranscriptOpen(true); setMoreOpen(false); }}>

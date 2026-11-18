@@ -102,7 +102,7 @@ export default function ChannelPosts({ channelId, channelName, channelAvatar, on
           {post.images.map((image, index) => <img key={`${image.url}-${index}`} src={img(image.url)} alt="" loading="lazy" />)}
         </div>}
         {post.attachment?.type === "video" && post.localVideo && <div className="channel-post-video">
-          <VideoCard video={post.localVideo} onPlay={onPlay} onChanged={() => void load(true)} allowReject={false} allowMarkWatched={false} searchResultLayout showWatchProgress />
+          <VideoCard video={post.localVideo} onPlay={onPlay} onChanged={() => void load(true)} allowMarkWatched={false} searchResultLayout />
         </div>}
         {post.attachment?.type === "video" && !post.localVideo && <Link className="channel-post-attachment" to={`/watch/${post.attachment.id}`}>
           <img src={videoThumbnail(post.attachment.thumbnail)} alt="" loading="lazy" onError={handleVideoThumbnailError} />

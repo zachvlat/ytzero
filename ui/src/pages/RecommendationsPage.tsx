@@ -194,7 +194,7 @@ export default function RecommendationsPage({ onPlay, loadRecommendations, loadP
         <>
           <div className={`video-grid video-grid--${gridSize}`}>
             {videos.map((video) => (
-              <VideoCard key={video.video_id} video={video} onPlay={(item) => onPlay(item, playbackQueue)} onChanged={removeCard} showWatchProgress />
+              <VideoCard key={video.video_id} video={video} onPlay={(item) => onPlay(item, playbackQueue)} onChanged={removeCard} />
             ))}
           </div>
           {loadingMore && <VideoGridSkeleton count={4} gridSize={gridSize} />}

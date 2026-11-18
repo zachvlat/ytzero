@@ -4,6 +4,8 @@ import type { TakeoutBundle } from "./takeout";
 // memory only: re-uploading after a server restart is acceptable for a
 // self-hosted app, and it keeps multi-megabyte history manifests off the wire.
 const SESSION_TTL_MS = 30 * 60_000;
+const MAX_SESSIONS = 50;
+const SWEEP_INTERVAL_MS = 60_000;
 
 interface ImportSession {
   userId: number;
@@ -20,8 +22,16 @@ function sweep() {
   }
 }
 
+// A parsed ZIP can be hundreds of megabytes, so an abandoned upload must not
+// wait for another upload before it is released.
+setInterval(sweep, SWEEP_INTERVAL_MS).unref();
+
 export function createImportSession(userId: number, bundle: TakeoutBundle): string {
   sweep();
+  if (sessions.size >= MAX_SESSIONS) {
+    // Map iterates in insertion order, which is creation order here.
+    sessions.delete(sessions.keys().next().value!);
+  }
   const id = crypto.randomUUID();
   sessions.set(id, { userId, bundle, createdAt: Date.now() });
   return id;

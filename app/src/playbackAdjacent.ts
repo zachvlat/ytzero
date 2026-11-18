@@ -99,9 +99,6 @@ async function orderedVideoIds(userId: number, context: Exclude<PlaybackContext,
   if (context.kind === "history") {
     return (await database.prepare(`SELECT h.video_id FROM (SELECT video_id,MAX(id) history_id,MAX(watched_at) watched_at FROM history WHERE user_id=? GROUP BY video_id) h JOIN videos v ON v.video_id=h.video_id WHERE ${shortsUiVisibilitySql(userId)} ORDER BY h.watched_at DESC,h.history_id DESC`).all(userId) as { video_id: string }[]).map((row) => row.video_id);
   }
-  if (context.kind === "archive") {
-    return (await database.prepare(`SELECT v.video_id FROM videos v JOIN user_videos uv ON uv.video_id=v.video_id AND uv.user_id=? WHERE uv.status='archived' AND ${shortsUiVisibilitySql(userId)} ORDER BY COALESCE(v.published_at,v.created_at) DESC,v.video_id DESC`).all(userId) as { video_id: string }[]).map((row) => row.video_id);
-  }
   if (context.kind === "user-playlist") {
     const rows = await database.prepare(`SELECT upv.video_id,upv.added_at,upv.position,v.title,v.published_at
       FROM user_playlist_videos upv JOIN user_playlists up ON up.id=upv.playlist_id JOIN videos v ON v.video_id=upv.video_id

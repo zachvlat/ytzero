@@ -54,7 +54,6 @@ describe("administrator-only profile permissions", () => {
     expect(result.adminSettingsStatus).toBe(200);
     expect(result.restrictedSettingsStatus).toBe(423);
     expect(result.defaultTagStatus).toBe(200);
-    expect(result.defaultFilterStatus).toBe(200);
     expect(result.restrictedImportStatus).toBe(403);
   });
 
@@ -65,13 +64,12 @@ describe("administrator-only profile permissions", () => {
 
   test("delegates disabled areas while retaining the separate PIN gate", () => {
     expect(result.policyStatus).toBe(200);
-    expect(result.policyAreas).toEqual(["followed_playlists", "imports", "filters", "playlists", "playback", "profiles", "public_sharing"]);
+    expect(result.policyAreas).toEqual(["followed_playlists", "imports", "playlists", "playback", "profiles", "public_sharing"]);
     expect(result.pinLockedSettingsStatus).toBe(423);
     expect(result.delegatedSettingsStatus).toBe(200);
     expect(result.restrictedPlaybackStatus).toBe(403);
     expect(result.restrictedPlaylistStatus).toBe(403);
     expect(result.restrictedFollowedPlaylistStatus).toBe(403);
-    expect(result.restrictedFilterStatus).toBe(403);
     expect(result.delegatedProfileStatus).toBe(200);
     expect(result.forbiddenPolicyStatus).toBe(403);
     expect(result.changedPinStatus).toBe(200);

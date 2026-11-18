@@ -68,7 +68,6 @@ ENV PORT=3001 \
     YTZERO_VERSION=${YTZERO_VERSION} \
     YTZERO_COMMIT=${YTZERO_COMMIT}
 
-VOLUME /data
 EXPOSE 3001
 
 # curl is purged above to keep the image small, so probe with the Bun that is

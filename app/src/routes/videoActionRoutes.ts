@@ -4,7 +4,6 @@ import { isChildUser, recordWatchTick } from "../childTime";
 import { computeShowFrom } from "../scheduleTime";
 import { recordSchedulingSignal } from "../contentSignals";
 import { refreshDiscoveryInBackground } from "../plugins";
-import { cancelAutoDownloadIfUnwanted } from "../downloader";
 import { videoExistsStmt } from "../videoRoutesSupport";
 import { savePlaybackContext } from "./playbackRoutes";
 import { completeVideo } from "../videoCompletion";
@@ -52,30 +51,6 @@ api.post("/videos/:id/import", async (c) => {
     if (error instanceof OnDemandVideoImportError) return c.json({ error: error.message }, error.status);
     throw error;
   }
-});
-
-api.post("/videos/:id/archive", async (c) => {
-  const uid = currentUserId(c);
-  const id = c.req.param("id");
-  if (!await videoExistsStmt.get(id)) return c.json({ error: "not found" }, 404);
-  await database.prepare(
-    `INSERT INTO user_videos (user_id, video_id, status) VALUES (?, ?, 'archived')
-     ON CONFLICT(user_id, video_id) DO UPDATE SET status = 'archived', bucket = NULL, show_from = NULL, playback_context_json = NULL`
-  ).run(uid, id);
-  // Rejecting a video also stops a pending auto download nobody else waits for.
-  await cancelAutoDownloadIfUnwanted(uid, id);
-  refreshDiscoveryInBackground(uid);
-  return c.json({ ok: true });
-});
-
-api.post("/videos/:id/restore", async (c) => {
-  const uid = currentUserId(c);
-  await database.prepare(
-    `INSERT INTO user_videos (user_id, video_id, status) VALUES (?, ?, 'inbox')
-     ON CONFLICT(user_id, video_id) DO UPDATE SET status = 'inbox', bucket = NULL, show_from = NULL`
-  ).run(uid, c.req.param("id"));
-  refreshDiscoveryInBackground(uid);
-  return c.json({ ok: true });
 });
 
 api.post("/videos/:id/dequeue", async (c) => {
@@ -194,6 +169,9 @@ api.post("/videos/:id/tags", async (c) => {
 
 api.delete("/videos/:id/tags/:tagId", async (c) => {
   const uid = currentUserId(c);
+  if (!await database.prepare("SELECT 1 FROM tags WHERE id = ? AND user_id = ?").get(c.req.param("tagId"), uid)) {
+    return c.json({ error: "tag not found" }, 404);
+  }
   await database.prepare("DELETE FROM video_tags WHERE video_id = ? AND tag_id = ?").run(
     c.req.param("id"),
     c.req.param("tagId")

@@ -75,21 +75,26 @@ async function pollAppEvents(): Promise<void> {
 }
 
 /** Start the PostgreSQL-backed relay that fans mutations out to SSE clients on every replica. */
-export async function startAppEventRelay(options: { cleanup?: boolean } = {}): Promise<void> {
+export async function startAppEventRelay(): Promise<void> {
   if (relayStarted || databaseConfig.engine !== "postgres") return;
   const latest = await database.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM app_events").get<{ id: number }>();
   relayCursor = Number(latest?.id ?? 0);
   relayStarted = true;
   const timer = setInterval(() => void pollAppEvents(), relayPollIntervalMs());
   timer.unref?.();
-  if (options.cleanup) {
-    const cleanup = () => database.prepare("DELETE FROM app_events WHERE created_at < datetime('now', '-1 day')").run()
-      .catch((error) => log.warn("cluster.event_cleanup_failed", { error: error instanceof Error ? error.message : String(error) }));
-    void cleanup();
-    const cleanupTimer = setInterval(() => void cleanup(), 60 * 60_000);
-    cleanupTimer.unref?.();
-  }
   log.info("cluster.event_relay_started", { pollIntervalMs: relayPollIntervalMs() });
+}
+
+let cleanupStarted = false;
+/** Prune old relay events on the single replica that owns background tasks. */
+export function startEventCleanup(): void {
+  if (cleanupStarted || databaseConfig.engine !== "postgres") return;
+  cleanupStarted = true;
+  const cleanup = () => database.prepare("DELETE FROM app_events WHERE created_at < datetime('now', '-1 day')").run()
+    .catch((error) => log.warn("cluster.event_cleanup_failed", { error: error instanceof Error ? error.message : String(error) }));
+  void cleanup();
+  const cleanupTimer = setInterval(() => void cleanup(), 60 * 60_000);
+  cleanupTimer.unref?.();
 }
 
 const pending = new Map<AppEventTopic, ReturnType<typeof setTimeout>>();

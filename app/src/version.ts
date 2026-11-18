@@ -5,6 +5,7 @@
 // scripts/install.sh env file, a plain checkout), and the commit is still
 // resolved from git after that so dev logs carry it too.
 import { readFileSync } from "node:fs";
+import { compareReleaseParts, parseReleaseTag } from "../../shared/releaseVersion";
 
 const COMMIT_HASH = /^[0-9a-f]{7,40}$/;
 
@@ -52,36 +53,11 @@ interface ParsedVersion {
   canonical: string;
 }
 
-function compareNumericParts(left: string, right: string): -1 | 0 | 1 {
-  if (left.length !== right.length) return left.length > right.length ? 1 : -1;
-  if (left === right) return 0;
-  return left > right ? 1 : -1;
-}
-
 function parseVersion(value: string): ParsedVersion | null {
-  // Release tags use a deliberately narrow grammar. In particular, accepting
-  // arbitrary three-number strings here would make malformed CalVer tags such
-  // as 2026.8.1 look like valid SemVer releases.
-  const calver = value.match(/^([1-9]\d{3})\.(0[1-9]|1[0-2])\.([1-9]\d*)$/);
-  if (calver) {
-    return {
-      scheme: "calver",
-      parts: [calver[1], calver[2], calver[3]],
-      canonical: value,
-    };
-  }
-
-  const legacy = value.match(/^v?0\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
-  if (legacy) {
-    const canonical = `0.${legacy[1]}.${legacy[2]}`;
-    return {
-      scheme: "legacy",
-      parts: ["0", legacy[1], legacy[2]],
-      canonical,
-    };
-  }
-
-  return null;
+  const parsed = parseReleaseTag(value);
+  if (!parsed) return null;
+  // Historical v0.x.y and 0.x.y tags share one canonical key.
+  return { ...parsed, canonical: parsed.scheme === "calver" ? value : parsed.parts.join(".") };
 }
 
 /** A stable identity for supported release labels, or `null` for malformed
@@ -98,11 +74,7 @@ export function compareVersions(left: string, right: string): -1 | 0 | 1 | null 
   if (!a || !b) return null;
 
   if (a.scheme !== b.scheme) return a.scheme === "calver" ? 1 : -1;
-  for (let index = 0; index < a.parts.length; index++) {
-    const comparison = compareNumericParts(a.parts[index], b.parts[index]);
-    if (comparison !== 0) return comparison;
-  }
-  return 0;
+  return compareReleaseParts(a.parts, b.parts);
 }
 
 /** Whether a stable GitHub release is newer than the running build. `null`

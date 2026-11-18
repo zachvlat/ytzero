@@ -544,6 +544,21 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "CREATE INDEX IF NOT EXISTS idx_child_download_requests_user ON child_download_requests(user_id, created_at)" },
     ],
   },
+  {
+    version: 118,
+    name: "restore-archived-videos-to-inbox",
+    schemaHashes: {
+      "app/src/schema.sql": "cf2cc11b4a97a1ddfa26c59a70fe85d4def98829258b64228d591b0ee77e25ca",
+      "app/src/channelPostsSchema.sql": "70a7df33bf373524cf6cd0687e46d7987a7cd90a2619fd9586d12d6f940d45a5",
+      "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
+    },
+    sqlite: [
+      { kind: "sql", statement: "UPDATE user_videos SET status = 'inbox' WHERE status = 'archived'" },
+    ],
+    postgres: [
+      { kind: "sql", statement: "UPDATE user_videos SET status = 'inbox' WHERE status = 'archived'" },
+    ],
+  },
 ];
 
 function quoteIdentifier(identifier: string): string {

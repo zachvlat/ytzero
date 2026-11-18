@@ -4,7 +4,7 @@
  * adding a capability therefore cannot silently create an unguarded route.
  */
 export const PROFILE_PERMISSION_AREAS = [
-  "channels", "followed_playlists", "imports", "tags", "filters", "playlists",
+  "channels", "followed_playlists", "imports", "tags", "playlists",
   "appearance", "feed", "navigation", "playback", "plugins", "profiles", "public_sharing",
 ] as const;
 
@@ -12,13 +12,13 @@ export type ProfilePermissionArea = (typeof PROFILE_PERMISSION_AREAS)[number];
 export type PermissionOverride = "allow" | "deny" | "inherit";
 
 export const DEFAULT_STANDARD_PERMISSIONS: readonly ProfilePermissionArea[] = [
-  "channels", "followed_playlists", "tags", "filters", "playlists",
+  "channels", "followed_playlists", "tags", "playlists",
   "appearance", "feed", "navigation", "playback", "plugins",
 ];
 
 // Preserves the former safe household default for child profiles.
 export const DEFAULT_RESTRICTED_PERMISSIONS: readonly ProfilePermissionArea[] = [
-  "channels", "followed_playlists", "tags", "filters", "playlists",
+  "channels", "followed_playlists", "tags", "playlists",
 ];
 
 export const PIN_PROTECTED_PERMISSION_AREAS = new Set<ProfilePermissionArea>([
@@ -63,7 +63,6 @@ export function permissionAreaForMutation(path: string): ProfilePermissionArea |
   if (/^\/plugins\/[^/]+\/settings$/.test(path)) return "plugins";
   if (path === "/feed-builder" || path.startsWith("/feed-builder/") || path === "/feed/compositions" || path.startsWith("/feed/compositions/")) return "feed";
   if (path === "/profiles") return "profiles";
-  if (path === "/filter-rules" || path.startsWith("/filter-rules/")) return "filters";
   if (path === "/tags" || path.startsWith("/tags/") || path === "/rules" || path.startsWith("/rules/")
     || path.startsWith("/videos/") && path.includes("/tags") || path.startsWith("/channels/") && path.includes("/tags")) return "tags";
   if (path === "/playlists" || path.startsWith("/playlists/")) return "playlists";
@@ -86,7 +85,7 @@ export function permissionAreasForSettings(body: unknown): ProfilePermissionArea
 }
 
 // Legacy parser is retained for database and backup migration only.
-const LEGACY_PERMISSION_AREAS = ["channels", "followed_playlists", "imports", "tags", "filters", "playlists", "settings", "plugins", "profiles"] as const;
+const LEGACY_PERMISSION_AREAS = ["channels", "followed_playlists", "imports", "tags", "playlists", "settings", "plugins", "profiles"] as const;
 const DISPLAY_PERMISSION_AREAS: readonly ProfilePermissionArea[] = ["appearance", "feed", "navigation", "playback"];
 export const LEGACY_DEFAULT_ADMIN_ONLY_AREAS: readonly ProfilePermissionArea[] = ["imports", "appearance", "feed", "navigation", "playback", "plugins", "profiles"];
 
@@ -99,7 +98,6 @@ export function parseLegacyAdminOnlyAreas(raw: string | null | undefined): Profi
     const migrated = new Set(areas);
     if (migrated.has("settings")) DISPLAY_PERMISSION_AREAS.forEach((area) => migrated.add(area));
     if (migrated.has("channels") && Array.isArray(value)) { migrated.add("followed_playlists"); migrated.add("imports"); }
-    if (migrated.has("tags") && Array.isArray(value)) migrated.add("filters");
     if ([...migrated].some((area) => !isProfilePermissionArea(area) && !(LEGACY_PERMISSION_AREAS as readonly string[]).includes(area))) return [...LEGACY_DEFAULT_ADMIN_ONLY_AREAS];
     return PROFILE_PERMISSION_AREAS.filter((area) => migrated.has(area));
   } catch { return [...LEGACY_DEFAULT_ADMIN_ONLY_AREAS]; }

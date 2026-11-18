@@ -7,7 +7,6 @@ describe("playback queue context", () => {
       { version: 1, kind: "feed", tags: [1, 2], sort: "arrival", showAll: false },
       { version: 1, kind: "liked", showShorts: true },
       { version: 1, kind: "history" },
-      { version: 1, kind: "archive" },
       { version: 1, kind: "user-playlist", playlistUuid: "playlist-uuid", sort: "added-newest" },
       { version: 1, kind: "channel-playlist", playlistId: "PL1234567890", sort: "playlist-order" },
       { version: 1, kind: "watchlist", sort: "duration-desc", dueOnly: false },

@@ -28,6 +28,8 @@ export function registerChildRoutes(
   // attempts count against the child profile's lockout.
   async function confirmApproval(childId: number, pin: unknown): Promise<boolean> {
     if (!isChildLockEnabled()) return true;
+    // A lockout must stop verification itself, not just set a flag for the UI.
+    if (isPinLocked(childId)) return false;
     if (!isSixDigitPin(pin) || !(await verifyChildLockPin(pin))) {
       await registerChildLockFailure(childId);
       publishAppEvent("child-status");

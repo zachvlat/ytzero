@@ -1,4 +1,5 @@
 const { api } = await import("../src/routes");
+const { AUTH_SESSION_COOKIE, createSession } = await import("../src/auth");
 const { setSetting } = await import("../src/db");
 
 await setSetting("auth_method", "none");
@@ -17,10 +18,11 @@ const environmentLogin = await api.request("http://localhost/auth/password/login
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ password: process.env.YTZERO_AUTH_PASSWORD }),
 });
-const cookie = environmentLogin.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
+// Configuration needs the owner profile bound on the session, not just a login.
+const ownerCookie = `${AUTH_SESSION_COOKIE}=${await createSession(1, "account")}`;
 const methodChange = await api.request("http://localhost/auth/method", {
   method: "POST",
-  headers: { Cookie: cookie, "Content-Type": "application/json" },
+  headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
   body: JSON.stringify({ method: "none" }),
 });
 

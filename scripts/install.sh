@@ -181,7 +181,7 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   msg "Writing ${ENV_FILE}"
   cat > "${ENV_FILE}" <<EOF
 # YT Zero configuration. Full reference:
-# https://github.com/Pelski/ytzero/wiki/Configuration
+# https://github.com/Pelski/ytzero
 # Applies on: systemctl restart ytzero
 PORT=${PORT}
 UI_DIST=./public
@@ -232,7 +232,7 @@ msg "Writing systemd unit"
 cat > /etc/systemd/system/ytzero.service <<EOF
 [Unit]
 Description=YT Zero
-Documentation=https://github.com/${REPO}/wiki
+Documentation=https://github.com/${REPO}
 After=network-online.target
 Wants=network-online.target
 

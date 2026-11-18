@@ -1,6 +1,5 @@
 import { apiFetch } from "./apiTransport";
 import { http, sharedGet } from "./apiHttp";
-import { devicePairingApi } from "./devicePairingApi";
 import type { EmojiSkinTone } from "./emojiSkinTone";
 import { createSocialWatchPartyApi } from "./socialWatchPartyApi";
 import type { PlaylistSort, UserPlaylistSort } from "../../shared/playlistSort";
@@ -59,7 +58,6 @@ import {
   type DownloadRulePreview,
   type DownloadSummary,
   type DownloadsResponse,
-  type FilterRule,
   type FollowedPlaylist,
   type FollowedPlaylistUpdates,
   type HouseholdInsights,
@@ -183,7 +181,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ filter, side, exclude_video_ids: opts.excludeVideoIds ?? [], page: opts.page ?? 0 }),
     }),
-  cleanupApply: (filter: CleanupFilter, action: "archive" | "watched", excludeVideoIds: string[] = []) =>
+  cleanupApply: (filter: CleanupFilter, action: "watched", excludeVideoIds: string[] = []) =>
     http<{ affected: number }>("/cleanup/apply", {
       method: "POST",
       body: JSON.stringify({ filter, action, exclude_video_ids: excludeVideoIds }),
@@ -318,7 +316,6 @@ export const api = {
   videoComments: (id: string, sort: VideoCommentSort = "top", refresh = false) =>
     http<VideoCommentsResponse>(`/videos/${id}/comments?sort=${sort}${refresh ? "&refresh=1" : ""}`),
   watchlist: () => sharedGet<{ videos: Video[] }>("watchlist", "/watchlist"),
-  archive: (page = 0) => http<{ videos: Video[] }>(`/archive?page=${page}`),
   history: (page = 0) => http<{ videos: Video[]; page: number; has_more: boolean }>(`/history?page=${page}`),
   bookmarks: () => http<{ bookmarks: BookmarkVideo[] }>("/bookmarks"),
   videoBookmark: (id: string) => http<{ bookmarks: Bookmark[]; bookmark: Bookmark | null }>(`/videos/${id}/bookmark`),
@@ -350,8 +347,6 @@ export const api = {
     http(`/videos/${id}/progress`, { method: "PUT", body: JSON.stringify({ position, duration }), keepalive }),
   clearProgress: (id: string) => http(`/videos/${id}/progress`, { method: "DELETE" }),
   dequeue: (id: string) => http(`/videos/${id}/dequeue`, { method: "POST" }),
-  archiveVideo: (id: string) => http(`/videos/${id}/archive`, { method: "POST" }),
-  restore: (id: string) => http(`/videos/${id}/restore`, { method: "POST" }),
   watch: (id: string, playbackContext?: PlaybackQueueContext) => http(`/videos/${id}/watch`, { method: "POST", body: JSON.stringify(playbackContext ? { playback_context: playbackContext } : {}) }),
   playbackAdjacent: (id: string, direction: "oldest" | "newest", context: PlaybackQueueContext, relative: "next" | "previous" = "next") =>
     http<{ video_id: string | null }>("/playback/adjacent", { method: "POST", body: JSON.stringify({ video_id: id, direction, relative, context }) }),
@@ -411,12 +406,6 @@ export const api = {
   updateRule: (id: number, patch: { tag_id?: number; pattern?: string; match_type?: string; field?: string }) =>
     http<{ rule: Rule }>(`/rules/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeRule: (id: number) => http(`/rules/${id}`, { method: "DELETE" }),
-  filterRules: () => http<{ rules: FilterRule[] }>("/filter-rules"),
-  addFilterRule: (r: { pattern: string; match_type: string; field: string; action: string; channel_id?: string | null }) =>
-    http<{ rule: FilterRule; archived: number }>("/filter-rules", { method: "POST", body: JSON.stringify(r) }),
-  updateFilterRule: (id: number, patch: { pattern?: string; match_type?: string; field?: string; action?: string; channel_id?: string | null }) =>
-    http<{ rule: FilterRule }>(`/filter-rules/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
-  removeFilterRule: (id: number) => http(`/filter-rules/${id}`, { method: "DELETE" }),
   refresh: () => http<{ channels: number; added: number; errors: string[] }>("/refresh", { method: "POST" }),
   settings: () => sharedGet<{ settings: AppSettings; settings_meta: { timezone_locked: boolean } }>("settings", "/settings"),
   bootstrapSettings: () => sharedGet<{ settings: AppSettings; settings_meta: { timezone_locked: boolean } }>("bootstrap-settings", "/settings", { suppressAuthenticationNavigation: true }),
@@ -570,7 +559,6 @@ export const api = {
 
   config: () => sharedGet<{ app_url: string }>("config", "/config"),
   // ---------- authentication ----------
-  ...devicePairingApi,
   authStatus: () => sharedGet<AuthStatus>("auth-status", "/auth/status"),
   passwordLogin: (username: string, password: string) =>
     http<{ ok: true; active_id?: number }>("/auth/password/login", { method: "POST", body: JSON.stringify({ username, password }) }),

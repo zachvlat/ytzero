@@ -157,7 +157,6 @@ export default function LivePage({ onPlay }: { onPlay: (v: Video) => void }) {
                   video={regionalLiveVideo(live)}
                   onPlay={onPlay}
                   onChanged={() => {}}
-                  allowReject={false}
                   allowMarkWatched={false}
                   processing={false}
                   liveViewers={live.viewers}

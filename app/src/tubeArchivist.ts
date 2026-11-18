@@ -4,6 +4,7 @@ import { audioRangeHeader, parseAudioRange, parseAudioUnsatisfiedTotal, validate
 import { database } from "./database";
 import { DB_PATH, getSetting, setSetting } from "./db";
 import { log } from "./logger";
+import { beginMutation } from "./maintenance";
 import { pluginEnabled } from "./plugins";
 import { normalizeVideoComments, type VideoCommentsResult } from "./youtubeComments";
 import { backgroundTasksEnabled } from "./deploymentMode";
@@ -236,14 +237,16 @@ async function performSync(): Promise<TubeArchivistSyncResult> {
   if (!tubeArchivistConfigured()) throw new Error("TubeArchivist is not configured");
   const controller = new AbortController();
   syncAbortController = controller;
-  const previous = await database.prepare("SELECT generation FROM tube_archivist_sync_state WHERE singleton=1").get() as { generation: number } | null;
-  const generation = Number(previous?.generation ?? 0) + 1;
-  await database.prepare(`INSERT INTO tube_archivist_sync_state(singleton,generation,running,last_error) VALUES(1,?,1,NULL)
-    ON CONFLICT(singleton) DO UPDATE SET running=1,last_error=NULL`).run(generation);
-  let imported = 0;
-  let pages = 0;
-  const pageSignatures = new Set<string>();
+  const releaseMutation = beginMutation();
+  if (!releaseMutation) throw new Error("maintenance in progress");
   try {
+    const previous = await database.prepare("SELECT generation FROM tube_archivist_sync_state WHERE singleton=1").get() as { generation: number } | null;
+    const generation = Number(previous?.generation ?? 0) + 1;
+    await database.prepare(`INSERT INTO tube_archivist_sync_state(singleton,generation,running,last_error) VALUES(1,?,1,NULL)
+      ON CONFLICT(singleton) DO UPDATE SET running=1,last_error=NULL`).run(generation);
+    let imported = 0;
+    let pages = 0;
+    const pageSignatures = new Set<string>();
     for (let page = 1; page <= MAX_PAGES; page++) {
       if (!pluginEnabled(PLUGIN_ID)) throw new Error("TubeArchivist plugin was disabled");
       const response = await request("/api/video/", { signal: controller.signal }, new URLSearchParams({ page: String(page) }));
@@ -267,6 +270,8 @@ async function performSync(): Promise<TubeArchivistSyncResult> {
     const message = error instanceof Error ? error.message : String(error);
     await database.prepare("UPDATE tube_archivist_sync_state SET running=0,last_error=? WHERE singleton=1").run(message.slice(0, 500));
     throw error;
+  } finally {
+    releaseMutation();
   }
 }
 

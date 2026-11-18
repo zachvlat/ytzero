@@ -22,7 +22,6 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Pairing links must point back to the browser-facing dev server.
       "/api": { target: "http://localhost:3001", xfwd: true },
       // Keep the public page on the Vite/UI origin during development while
       // forwarding only its token-scoped data and media resources to the API.

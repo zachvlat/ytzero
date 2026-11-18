@@ -9,7 +9,6 @@ export type PlaybackContext =
   | { version: 1; kind: "feed"; tags: number[]; showAll: boolean; sort: "published" | "arrival" }
   | { version: 1; kind: "liked"; showShorts: boolean }
   | { version: 1; kind: "history" }
-  | { version: 1; kind: "archive" }
   | { version: 1; kind: "user-playlist"; playlistUuid: string; sort: UserPlaylistSort }
   | { version: 1; kind: "channel-playlist"; playlistId: string; sort: PlaylistSort }
   | { version: 1; kind: "watchlist"; sort: WatchlistSort; dueOnly: boolean }
@@ -42,7 +41,7 @@ export function parsePlaybackContext(value: unknown): PlaybackContext | null {
     if (!Array.isArray(context.ids) || context.ids.length > SESSION_PLAY_QUEUE_MAX_ITEMS || !context.ids.every((id) => typeof id === "string" && VIDEO_ID.test(id))) return null;
     return { version: 1, kind: "session", ids: [...new Set(context.ids as string[])] };
   }
-  if (["history", "archive", "recommendations", "in-progress"].includes(context.kind)) return { version: 1, kind: context.kind } as PlaybackContext;
+  if (["history", "recommendations", "in-progress"].includes(context.kind)) return { version: 1, kind: context.kind } as PlaybackContext;
   if (context.kind === "user-playlist" && typeof context.playlistUuid === "string" && UUID.test(context.playlistUuid)) {
     if (context.sort !== undefined && !(USER_PLAYLIST_SORTS as readonly unknown[]).includes(context.sort)) return null;
     return { version: 1, kind: "user-playlist", playlistUuid: context.playlistUuid, sort: (context.sort ?? "added-newest") as UserPlaylistSort };

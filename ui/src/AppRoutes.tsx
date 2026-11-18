@@ -10,7 +10,6 @@ import { DelayedPageSkeleton } from "./components/LoadingState";
 // Module-level so the page gets stable functions and does not refetch settings on every render.
 const loadDiscoverySettings = () => api.pluginSettings("discovery");
 const updateDiscoverySettings = (patch: Record<string, PluginSettingValue>) => api.updatePluginSettings("discovery", patch);
-const ArchivePage = lazy(() => import("./pages/ArchivePage"));
 const BookmarksPage = lazy(() => import("./pages/BookmarksPage"));
 const ChannelPage = lazy(() => import("./pages/ChannelPage"));
 const ChannelPlaylistPage = lazy(() => import("./pages/ChannelPlaylistPage"));
@@ -30,12 +29,10 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ShortsPage = lazy(() => import("./pages/ShortsPage"));
 const SocialPage = lazy(() => import("./pages/SocialPage"));
 const SubscriptionsPage = lazy(() => import("./pages/SubscriptionsPage"));
-const TvPairingPage = lazy(() => import("./pages/TvPairingPage"));
 const UserPlaylistPage = lazy(() => import("./pages/UserPlaylistPage"));
 const WatchPage = lazy(() => import("./pages/WatchPage"));
 const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
 type AppRoutesProps = {
-  appIconColor: string;
   childStatus: ChildStatus | null;
   enabledPluginRoutes: Set<string> | null;
   feedSort: "published" | "arrival";
@@ -50,7 +47,6 @@ type AppRoutesProps = {
 };
 
 export default function AppRoutes({
-  appIconColor,
   channelOpenSync,
   childStatus,
   enabledPluginRoutes,
@@ -99,11 +95,9 @@ export default function AppRoutes({
         <Route path="/liked" element={<LikedPage onPlay={onPlay} shortsEnabled={shortsEnabled} />} />
         <Route path="/history" element={<HistoryPage onPlay={onPlay} allowHistoryDeletion={childStatus?.is_child !== true} />} />
         <Route path="/bookmarks" element={<BookmarksPage />} />
-        <Route path="/archive" element={<ArchivePage onPlay={onPlay} />} />
         <Route path="/cleanup" element={<CleanupPage />} />
         <Route path="/insights" element={<InsightsPage shortsEnabled={shortsEnabled} />} />
         <Route path="/settings" element={<SettingsPage showToast={showToast} />} />
-        <Route path="/tv/pair" element={<TvPairingPage appIconColor={appIconColor} />} />
         <Route path="/import" element={isAdmin || !profilePermissions.admin_only_areas.includes("imports")
           ? <ImportPage showToast={showToast} />
           : <Navigate to="/settings" replace />} />

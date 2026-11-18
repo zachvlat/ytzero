@@ -421,6 +421,7 @@ export async function oidcCallback(
   const adminGroup = (getSetting("auth_oidc_admin_group") || "").trim();
   const is_admin = Boolean(adminGroup) && groups.includes(adminGroup);
 
+  // Gateway identities are unbound until the profile picker pins one on the session.
   if (mode === "gateway") return { user_id: null, mode, is_admin, permission_group_uuid: null };
 
   // mapped: resolve the configured claim to a profile.

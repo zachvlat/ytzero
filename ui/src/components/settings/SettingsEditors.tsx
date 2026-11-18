@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { Archive, ArrowDownToLine, Ban, BookmarkPlus, Check, ChevronDown, ChevronUp, Clock, Eye, EyeOff, Filter, GripHorizontal, GripVertical, Headphones, ListFilter, ListMusic, ListPlus, LoaderCircle, Lock, Pencil, Plus, RotateCcw, Trash2, Tv, Undo2, X, Zap } from "lucide-react";
-import { api, type Channel, type FilterRule, type Profile, type Rule, type Tag, type UserPlaylist, type UserPlaylistRule, type Video } from "../../api";
+import { ArrowDownToLine, Ban, BookmarkPlus, Check, ChevronDown, ChevronUp, Clock, Eye, EyeOff, Filter, GripHorizontal, GripVertical, Headphones, ListFilter, ListMusic, ListPlus, LoaderCircle, Lock, Pencil, Plus, RotateCcw, Trash2, Tv, X, Zap } from "lucide-react";
+import { api, type Profile, type Rule, type Tag, type UserPlaylist, type UserPlaylistRule, type Video } from "../../api";
 import { emit } from "../../events";
 import { formatVideoCount, useI18n, type I18nKey } from "../../i18n";
 import { NAV_ITEMS, normalizeNav, type NavConfigEntry } from "../../nav";
@@ -306,98 +306,6 @@ export function PluginMultiselect({ value, options, searchPlaceholder, onChange,
   );
 }
 
-function FilterRuleRow({ rule, channels, onSave, onRemove }: { rule: FilterRule; channels: Channel[]; onSave: (p: Parameters<typeof api.updateFilterRule>[1]) => Promise<void>; onRemove: () => void }) {
-  const { t } = useI18n();
-  const [editing, setEditing] = useState(false);
-  const [pattern, setPattern] = useState(rule.pattern);
-  const [matchType, setMatchType] = useState<"contains" | "regex">(rule.match_type);
-  const [field, setField] = useState<"title" | "description" | "both">(rule.field);
-  const [action, setAction] = useState<"reject" | "whitelist">(rule.action);
-  const [channelId, setChannelId] = useState(rule.channel_id ?? "");
-
-  const save = async () => {
-    await onSave({ pattern, match_type: matchType, field, action, channel_id: channelId || null });
-    setEditing(false);
-  };
-
-  if (editing) {
-    return (
-      <tr>
-        <td colSpan={4}>
-          <div className="form-row" style={{ margin: 0, flexWrap: "wrap" }}>
-            <Input type="text" value={pattern} onChange={(e) => setPattern(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} style={{ flex: 1, minWidth: 120 }} />
-            <SelectMenu label={t("contains")} value={matchType} options={[{ value: "contains", label: t("contains") }, { value: "regex", label: "regex" }]} onChange={setMatchType} />
-            <SelectMenu label={t("inTitle")} value={field} options={[{ value: "title", label: t("inTitle") }, { value: "description", label: t("inDescription") }, { value: "both", label: t("titleOrDescription") }]} onChange={setField} />
-            <SelectMenu label={t("rejectMatching")} value={action} options={[{ value: "reject", label: t("rejectMatching") }, { value: "whitelist", label: t("onlyMatching") }]} onChange={setAction} />
-            <SelectMenu label={t("allChannels")} value={channelId} options={[{ value: "", label: t("allChannels") }, ...channels.filter((channel) => channel.followed !== 0).map((channel) => ({ value: channel.channel_id, label: channel.title || channel.channel_id }))]} onChange={setChannelId} searchable searchPlaceholder={t("searchChannelPlaceholder")} />
-            <IconButton label={t("save")} onClick={save}><Check /></IconButton>
-            <IconButton label={t("cancel")} onClick={() => setEditing(false)}><X /></IconButton>
-          </div>
-        </td>
-      </tr>
-    );
-  }
-
-  return (
-    <tr>
-      <td>
-        <span style={{ color: "var(--accent)" }}>{rule.pattern}</span>{" "}
-        <span className="muted">({rule.match_type === "regex" ? "regex" : t("contains")}, {rule.field === "title" ? t("inTitle") : rule.field === "description" ? t("inDescription") : t("titleOrDescription")})</span>
-      </td>
-      <td className="shrink">
-        <span className="tag-pill" style={{ color: rule.action === "reject" ? "var(--live)" : "var(--accent)", background: rule.action === "reject" ? "#f2293a18" : "var(--accent)18" }}>
-          {rule.action === "reject" ? t("reject") : t("onlyMatching")}
-        </span>
-      </td>
-      <td className="shrink">
-        <div style={{ display: "flex", gap: 4 }}>
-          <IconButton label={t("edit")} onClick={() => setEditing(true)}><Pencil /></IconButton>
-          <Popconfirm message={t("confirmDelete", { name: rule.pattern })} onConfirm={onRemove}>
-            <IconButton label={t("delete")}><Trash2 /></IconButton>
-          </Popconfirm>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-export function FilterRuleGroups({ rules, channels, onSave, onRemove }: {
-  rules: FilterRule[];
-  channels: Channel[];
-  onSave: (id: number, patch: Parameters<typeof api.updateFilterRule>[1]) => Promise<void>;
-  onRemove: (id: number) => void;
-}) {
-  const { t } = useI18n();
-  const groups = new Map<string, { label: string; rules: FilterRule[] }>();
-  for (const r of rules) {
-    const key = r.channel_id ?? "__global__";
-    if (!groups.has(key)) groups.set(key, { label: r.channel_title ?? t("allChannels"), rules: [] });
-    groups.get(key)!.rules.push(r);
-  }
-  return (
-    <>
-      {[...groups.entries()].map(([key, group]) => (
-        <div key={key} style={{ marginBottom: 16 }}>
-          <SectionHeader title={group.label} variant="uppercase" />
-          <table className="list-table">
-            <tbody>
-              {group.rules.map((r) => (
-                <FilterRuleRow
-                  key={r.id}
-                  rule={r}
-                  channels={channels}
-                  onSave={(patch) => onSave(r.id, patch)}
-                  onRemove={() => onRemove(r.id)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
-    </>
-  );
-}
-
 export function SidebarNavEditor({ value, onChange, excludedKeys = new Set<string>() }: { value: NavConfigEntry[]; onChange: (next: NavConfigEntry[]) => void; excludedKeys?: ReadonlySet<string> }) {
   const { t } = useI18n();
   const [dragKey, setDragKey] = useState<string | null>(null);
@@ -513,9 +421,7 @@ const VIDEO_CARD_ACTION_ITEMS: Record<VideoCardActionId, { labelKey: I18nKey; ic
   sessionQueue: { labelKey: "sessionQueueAdd", icon: ListPlus },
   playlist: { labelKey: "addToPlaylist", icon: BookmarkPlus },
   download: { labelKey: "downloadLocally", icon: ArrowDownToLine },
-  archive: { labelKey: "reject", icon: Archive },
   watched: { labelKey: "markWatched", icon: Eye },
-  restore: { labelKey: "restore", icon: Undo2 },
   remove: { labelKey: "remove", icon: Trash2 },
   otherPlaybackMode: { labelKey: "audioMode", icon: Headphones },
 };
@@ -547,7 +453,7 @@ export function VideoCardActionEditor({ value, mode, onChange }: { value: VideoC
   const scheduleAction = value.actions.find((action) => action.id === "schedule")!;
   const visibleActions = value.actions.filter((action) => action.id !== "schedule" && !action.hidden);
   const hiddenActions = value.actions.filter((action) => action.id !== "schedule" && action.hidden);
-  const previewConfig = showContextualActions ? value : { ...value, actions: value.actions.map((action) => action.id === "restore" || action.id === "remove" ? { ...action, hidden: true } : action) };
+  const previewConfig = showContextualActions ? value : { ...value, actions: value.actions.map((action) => action.id === "remove" ? { ...action, hidden: true } : action) };
 
   useLayoutEffect(() => {
     previewItemRefs.current.forEach((element, id) => {

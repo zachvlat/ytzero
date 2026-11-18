@@ -26,7 +26,8 @@ const visibilityConfigured = (await visibilityConfig.json() as any).hide_other_p
 await setSetting("auth_method", "shared");
 const sharedAuthStatus = await api.request("http://localhost/auth/status");
 const sharedPickerProfilesHidden = (await sharedAuthStatus.json() as any).hide_other_profiles;
-const sharedCookie = `${AUTH_SESSION_COOKIE}=${await createSession(null, "account")}`;
+// Bind the primary profile: an unbound account session has no owner powers.
+const sharedCookie = `${AUTH_SESSION_COOKIE}=${await createSession(1, "account")}`;
 const sharedAdminGrant = await api.request(`http://localhost/profiles/${inserted.id}/admin`, {
   method: "PUT", headers: { Cookie: sharedCookie, "Content-Type": "application/json" }, body: JSON.stringify({ is_admin: true }),
 });

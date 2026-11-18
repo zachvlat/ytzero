@@ -89,7 +89,7 @@ export default function AppShell({ isAdmin }: { isAdmin: boolean }) {
             />
             <main className="main">
               <div className="content">
-                <AppRoutes appIconColor={preferences.appIconColor} childStatus={profile.childStatus}
+                <AppRoutes childStatus={profile.childStatus}
                   channelOpenSync={normalizeChannelOpenSyncMode(preferences.appSettings?.channel_open_sync)}
                   enabledPluginRoutes={plugins.enabledPluginRoutes}
                   feedSort={preferences.feedSort}

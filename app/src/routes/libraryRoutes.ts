@@ -2,7 +2,6 @@ import type { Context, Hono } from "hono";
 import { database } from "../database";
 import { childLocalOnly, isChildUser } from "../childTime";
 import { profileDownloadsEnabled } from "../downloadConfig";
-import { cancelAutoDownloadIfUnwanted } from "../downloader";
 import { pluginEnabled, refreshDiscoveryInBackground } from "../plugins";
 import { searchYouTube } from "../youtube";
 import { searchWatchRelated } from "../watchRelated";
@@ -51,19 +50,16 @@ api.post("/cleanup/preview", async (c) => {
 
 api.post("/cleanup/apply", async (c) => {
   const uid = currentUserId(c);
-  const body = await c.req.json() as { filter?: CleanupFilter; exclude_video_ids?: string[]; action?: "archive" | "watched" };
+  const body = await c.req.json() as { filter?: CleanupFilter; exclude_video_ids?: string[]; action?: "watched" };
   const filter = body.filter ?? {};
   const excludeIds = body.exclude_video_ids ?? [];
-  if (body.action !== "archive" && body.action !== "watched") return c.json({ error: "invalid action" }, 400);
+  if (body.action !== "watched") return c.json({ error: "invalid action" }, 400);
 
   const videoIds = await listCleanupVideoIds(filter, uid, excludeIds);
   if (videoIds.length === 0) return c.json({ affected: 0 });
 
   const snapshot = await snapshotUserVideoState(uid, videoIds);
-  await applyCleanupAction(uid, videoIds, body.action);
-  // Both outcomes end in status=archived, so a pending auto download nobody
-  // will see anymore should stop the same way a single reject/watch does.
-  for (const id of videoIds) await cancelAutoDownloadIfUnwanted(uid, id);
+  await applyCleanupAction(uid, videoIds);
   await saveBulkUndo(uid, body.action, snapshot);
   refreshDiscoveryInBackground(uid);
   return c.json({ affected: videoIds.length });

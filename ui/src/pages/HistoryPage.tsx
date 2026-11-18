@@ -111,7 +111,6 @@ export default function HistoryPage({ onPlay, allowHistoryDeletion }: { onPlay: 
                     onChanged={refresh}
                     onRemoveFromHistory={allowHistoryDeletion ? api.removeFromHistory : undefined}
                     keepAfter={STATE_ONLY_FEEDBACK}
-                    showWatchProgress
                   />
                 ))}
               </div>

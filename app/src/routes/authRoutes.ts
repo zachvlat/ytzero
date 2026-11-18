@@ -1,4 +1,5 @@
 import type { Context, Hono } from "hono";
+import { getConnInfo } from "hono/bun";
 import { database } from "../database";
 import { getSetting, setSetting } from "../db";
 import { log } from "../logger";
@@ -29,7 +30,6 @@ import {
 import { accessControlSnapshot } from "../accessControl";
 import { externalRoleMappingConfig, type ExternalRoleMappingConfig } from "../externalRoleMappings";
 import { registerAuthStatusRoute } from "./authStatusRoute";
-import { registerDeviceAuthRoutes } from "./deviceAuthRoutes";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
@@ -42,6 +42,33 @@ interface UserRow {
   password_hash: string | null;
   oidc_subject: string | null;
   proxy_match: string | null;
+}
+
+// Small in-memory brake on online password guessing. Keyed by peer IP plus the
+// attempted username so one household's typo storm cannot lock out another.
+const PASSWORD_FAIL_LIMIT = 5;
+const PASSWORD_FAIL_WINDOW_MS = 15 * 60 * 1000;
+const PASSWORD_FAIL_MAP_LIMIT = 1000;
+const passwordFailures = new Map<string, { count: number; expiresAt: number }>();
+
+function passwordAttemptKey(c: ApiContext, username: unknown): string {
+  let ip = "";
+  try { ip = getConnInfo(c).remote.address ?? ""; } catch { /* no socket in isolated route tests */ }
+  return `${ip}|${String(username ?? "").toLowerCase()}`;
+}
+
+function passwordLoginBlocked(key: string): boolean {
+  const state = passwordFailures.get(key);
+  return Boolean(state && state.count >= PASSWORD_FAIL_LIMIT && state.expiresAt > Date.now());
+}
+
+function recordPasswordFailure(key: string) {
+  const now = Date.now();
+  for (const [entry, state] of passwordFailures) if (state.expiresAt <= now) passwordFailures.delete(entry);
+  const state = passwordFailures.get(key) ?? { count: 0, expiresAt: now + PASSWORD_FAIL_WINDOW_MS };
+  state.count += 1;
+  passwordFailures.set(key, state);
+  if (passwordFailures.size > PASSWORD_FAIL_MAP_LIMIT) passwordFailures.delete(passwordFailures.keys().next().value!);
 }
 
 interface AuthRouteAccess {
@@ -74,18 +101,26 @@ export function registerAuthRoutes(api: Api, access: AuthRouteAccess): void {
 // ---------- authentication ----------
 
 const OIDC_FLOW_COOKIE = "ytzero_oidc_flow";
-registerDeviceAuthRoutes(api, { canSwitchProfiles, currentUserId });
 registerAuthStatusRoute(api, { canDelegateProfileAdmins, canSwitchProfiles, hideOtherProfilesInPicker, isAdmin, isPrimaryUser, sessionToken });
 
 api.post("/auth/password/login", async (c) => {
   const method = authMethod();
   const { username, password } = await c.req.json().catch(() => ({}));
+  const sharedUsername = sharedAuth.username();
+  // Shared mode has one password, so every attempt from an IP shares a bucket —
+  // rotating the username must not buy fresh guesses.
+  const attemptKey = passwordAttemptKey(c, method === "shared" ? "shared" : username);
+  if (passwordLoginBlocked(attemptKey)) return c.json({ error: "too many attempts" }, 429);
   if (method === "shared") {
-    const expectedUser = sharedAuth.username();
-    if (expectedUser && String(username ?? "") !== expectedUser) return c.json({ error: "invalid credentials" }, 401);
-    if (!(await sharedAuth.verifyPassword(String(password ?? "")))) {
+    if (sharedUsername && String(username ?? "") !== sharedUsername) {
+      recordPasswordFailure(attemptKey);
       return c.json({ error: "invalid credentials" }, 401);
     }
+    if (!(await sharedAuth.verifyPassword(String(password ?? "")))) {
+      recordPasswordFailure(attemptKey);
+      return c.json({ error: "invalid credentials" }, 401);
+    }
+    passwordFailures.delete(attemptKey);
     c.header("Set-Cookie", authSessionCookie(await createSession(null, "account")));
     log.info("auth.login", { method, scope: "account" });
     return c.json({ ok: true });
@@ -93,8 +128,10 @@ api.post("/auth/password/login", async (c) => {
   if (method === "per_profile") {
     const row = await database.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE").get(String(username ?? "")) as UserRow | null;
     if (!row?.password_hash || !(await sharedAuth.verifyHash(String(password ?? ""), row.password_hash))) {
+      recordPasswordFailure(attemptKey);
       return c.json({ error: "invalid credentials" }, 401);
     }
+    passwordFailures.delete(attemptKey);
     c.header("Set-Cookie", authSessionCookie(await createSession(row.id, "profile")));
     c.header("Set-Cookie", profileCookie(row.id), { append: true });
     log.info("auth.login", { method, scope: "profile", id: row.id });

@@ -38,9 +38,8 @@ function video(overrides: Partial<Video> = {}): Video {
 describe("keepsCard", () => {
   test("keeps the card only for feedback the list opted into", () => {
     expect(keepsCard(STATE_ONLY_FEEDBACK, "watched")).toBe(true);
-    expect(keepsCard(STATE_ONLY_FEEDBACK, "rejected")).toBe(true);
-    expect(keepsCard(WATCHED_FEEDBACK, "rejected")).toBe(false);
     expect(keepsCard(WATCHED_FEEDBACK, "watched")).toBe(true);
+    expect(keepsCard(STATE_ONLY_FEEDBACK, "removed")).toBe(false);
   });
 
   test("lets every card go when the list opted out or reports nothing", () => {
@@ -61,14 +60,8 @@ describe("videoAfterFeedback", () => {
   });
 
   test("clears watched state and progress when the video goes back to unwatched", () => {
-    const result = videoAfterFeedback(video({ watched: 1, status: "archived" }), "unwatched");
+    const result = videoAfterFeedback(video({ watched: 1, status: "queued" }), "unwatched");
     expect(result).toEqual(video({ watched: null, watch_position: null, watch_duration: null, status: "inbox" }));
-  });
-
-  test("archives a rejected video and restores it back to the inbox", () => {
-    const rejected = videoAfterFeedback(video(), "rejected");
-    expect(rejected.status).toBe("archived");
-    expect(videoAfterFeedback(rejected, "restored").status).toBe("inbox");
   });
 
   test("leaves the video untouched for feedback that only moves it between lists", () => {

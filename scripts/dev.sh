@@ -21,8 +21,7 @@ trap cleanup EXIT INT TERM
 
 (
   cd "$ROOT_DIR/app"
-  # Bonjour clients need the UI origin too, so their QR pairing page can open.
-  YTZERO_DISCOVERY_PORT="${YTZERO_DISCOVERY_PORT:-5174}" bun run dev --host 0.0.0.0
+  bun run dev --host 0.0.0.0
 ) &
 APP_PID=$!
 

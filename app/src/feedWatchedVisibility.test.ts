@@ -22,15 +22,11 @@ if (process.env[ISOLATION_FLAG] !== "1") {
   db.prepare(`INSERT INTO videos(video_id,channel_id,title,is_short,published_at,is_unavailable) VALUES
     ('inbox-unwatched','UCfeed','Inbox unwatched',0,'2099-01-01',0),
     ('inbox-watched','UCfeed','Inbox watched',0,'2099-01-02',0),
-    ('archived-unwatched','UCfeed','Archived unwatched',0,'2099-01-03',0),
-    ('archived-watched','UCfeed','Archived watched',0,'2099-01-04',0),
     ('inbox-later','UCfeed','Inbox later',0,'2099-01-05',0),
     ('short-unwatched','UCfeed','Short unwatched',1,'2099-01-06',0),
     ('short-watched','UCfeed','Short watched',1,'2099-01-07',0)`).run();
   db.prepare(`INSERT INTO user_videos(user_id,video_id,status,watched) VALUES
     (1,'inbox-watched','inbox',1),
-    (1,'archived-unwatched','archived',NULL),
-    (1,'archived-watched','archived',1),
     (1,'short-watched','inbox',1)`).run();
 
   const keepWatched = (keep: boolean) => setUserSetting(1, "keep_watched_in_feed", keep ? "1" : "0");
@@ -73,12 +69,6 @@ if (process.env[ISOLATION_FLAG] !== "1") {
     test("keeps watched inbox videos when the profile opts in", async () => {
       await keepWatched(true);
       expect(visibleIds()).toEqual(["inbox-later", "inbox-unwatched", "inbox-watched"]);
-    });
-
-    test("does not restore rejected videos to the main feed", async () => {
-      await keepWatched(true);
-      expect(visibleIds()).not.toContain("archived-unwatched");
-      expect(visibleIds()).not.toContain("archived-watched");
     });
   });
 

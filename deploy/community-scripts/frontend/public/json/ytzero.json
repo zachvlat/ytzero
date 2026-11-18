@@ -9,9 +9,9 @@
   "updateable": true,
   "privileged": false,
   "interface_port": 3001,
-  "documentation": "https://github.com/Pelski/ytzero/wiki",
+  "documentation": "https://github.com/Pelski/ytzero",
   "website": "https://github.com/Pelski/ytzero",
-  "logo": "https://raw.githubusercontent.com/Pelski/ytzero/main/docs/assets/icon.png",
+  "logo": "https://raw.githubusercontent.com/Pelski/ytzero/main/docs/assets/icon.svg",
   "config_path": "/etc/ytzero/ytzero.env",
   "description": "YT Zero is a self-hosted YouTube inbox for people who want subscriptions, not recommendations. It reads public YouTube RSS feeds, stores everything locally in SQLite, and gives you a calm place to sort, schedule, watch, archive and revisit videos from creators you already follow — without a Google account or an API key. It supports profiles, several authentication methods, child profiles with watch-time limits, tags and rules, local playlists, SponsorBlock, and an optional yt-dlp plugin for downloads and offline playback.",
   "install_methods": [

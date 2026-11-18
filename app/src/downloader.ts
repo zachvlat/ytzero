@@ -423,7 +423,7 @@ export async function prioritizeDownload(userId: number, videoId: string): Promi
 }
 
 // Removal keeps a 'deleted' tombstone row so the auto policies never bring the
-// video back — from the user's perspective it was rejected, not merely purged.
+// video back — the user removed it deliberately, not merely purged it.
 export async function removeDownload(userId: number, videoId: string) {
   const result = await database.transaction(async () => {
     await database.prepare("DELETE FROM download_owners WHERE user_id=? AND video_id=?").run(userId, videoId);
@@ -480,21 +480,6 @@ export async function cancelAllPendingDownloads(userId: number): Promise<number>
   publishAppEvent("downloads", { cancelled: rows.length });
   log.info("downloads.queue_cancelled", { count: rows.length });
   return rows.length;
-}
-
-/**
- * A profile rejected (archived) the video: an in-flight auto download (feed /
- * scheduled) is pointless unless some other profile still waits for it. Manual
- * requests and finished files are left alone — retention handles those.
- */
-export async function cancelAutoDownloadIfUnwanted(userId: number, videoId: string) {
-  const row = await database.prepare("SELECT d.status, owner.source FROM downloads d JOIN download_owners owner ON owner.video_id=d.video_id WHERE d.video_id=? AND owner.user_id=?").get(videoId, userId) as { status: string; source: string } | null;
-  if (!row || row.source === "manual") return;
-  if (row.status !== "queued" && row.status !== "downloading") return;
-  const stillWanted = await database.prepare("SELECT 1 FROM user_videos uv WHERE uv.user_id=? AND uv.video_id=? AND uv.status='queued' AND COALESCE(uv.watched,0)=0").get(userId, videoId);
-  if (stillWanted) return;
-  await removeDownload(userId, videoId);
-  log.info("downloads.cancelled_after_reject", { videoId, source: row.source });
 }
 
 export async function setDownloadPinned(userId: number, videoId: string, pinned: boolean): Promise<boolean> {
@@ -706,9 +691,35 @@ function ownerProtected(row: CleanupOwnerRow, settings: DlSettings) {
     || (row.liked === 1 && settings.keep_liked === 1);
 }
 
-async function physicalDownloadProtected(videoId: string) {
-  if (await database.prepare("SELECT 1 FROM user_playlist_download_protections WHERE video_id=? LIMIT 1").get(videoId)) return true;
-  if (await database.prepare("SELECT 1 FROM followed_playlist_download_protections WHERE video_id=? LIMIT 1").get(videoId)) return true;
+interface PreloadedDownloadProtections {
+  userPairs: Set<string>;
+  followedPairs: Set<string>;
+  userVideoIds: Set<string>;
+  followedVideoIds: Set<string>;
+}
+
+async function preloadDownloadProtections(): Promise<PreloadedDownloadProtections> {
+  const userRows = await database.prepare(`
+    SELECT protection.video_id, playlist.user_id
+    FROM user_playlist_download_protections protection
+    LEFT JOIN user_playlists playlist ON playlist.id = protection.playlist_id
+  `).all() as Array<{ video_id: string; user_id: number | null }>;
+  const followedRows = await database.prepare("SELECT video_id, user_id FROM followed_playlist_download_protections")
+    .all() as Array<{ video_id: string; user_id: number }>;
+  return {
+    userPairs: new Set(userRows.filter((row) => row.user_id != null).map((row) => `${row.user_id}:${row.video_id}`)),
+    followedPairs: new Set(followedRows.map((row) => `${row.user_id}:${row.video_id}`)),
+    userVideoIds: new Set(userRows.map((row) => row.video_id)),
+    followedVideoIds: new Set(followedRows.map((row) => row.video_id)),
+  };
+}
+
+async function physicalDownloadProtected(
+  videoId: string,
+  protections: PreloadedDownloadProtections,
+  settingsByUser: Map<number, DlSettings>,
+) {
+  if (protections.userVideoIds.has(videoId) || protections.followedVideoIds.has(videoId)) return true;
   const owners = await database.prepare(`
     SELECT owner.user_id, owner.video_id, owner.pinned, d.finished_at,
            uv.status, COALESCE(uv.watched, 0) AS watched,
@@ -719,7 +730,12 @@ async function physicalDownloadProtected(videoId: string) {
     WHERE owner.video_id=?
   `).all(videoId) as CleanupOwnerRow[];
   for (const owner of owners) {
-    if (ownerProtected(owner, await dlSettings(owner.user_id))) return true;
+    let profileSettings = settingsByUser.get(owner.user_id);
+    if (!profileSettings) {
+      profileSettings = await dlSettings(owner.user_id);
+      settingsByUser.set(owner.user_id, profileSettings);
+    }
+    if (ownerProtected(owner, profileSettings)) return true;
   }
   return false;
 }
@@ -735,6 +751,7 @@ async function tombstone(videoId: string) {
 async function cleanup(s: DlSettings) {
   const manifestRecovery = await recoverDownloadsFromDisk(DOWNLOADS_DIR, notifyDownloadChanged);
   if (manifestRecovery.recovered > 0) publishAppEvent("downloads", { recovered: manifestRecovery.recovered });
+  const protections = await preloadDownloadProtections();
   // 1–2. Retention and watched cleanup are profile policies. Remove only that
   // profile's ownership; removeDownload tombstones the physical file only when
   // no other profile still owns it.
@@ -761,15 +778,8 @@ async function cleanup(s: DlSettings) {
     // pin, queued item or protected like, it does not exempt a physical file
     // from the shared storage cap below.
     if (profileSettings.keep_downloads === 1 || ownerProtected(owner, profileSettings)) continue;
-    if (await database.prepare(`
-      SELECT 1 FROM user_playlist_download_protections protection
-      JOIN user_playlists playlist ON playlist.id=protection.playlist_id
-      WHERE protection.video_id=? AND playlist.user_id=? LIMIT 1
-    `).get(owner.video_id, owner.user_id)) continue;
-    if (await database.prepare(`
-      SELECT 1 FROM followed_playlist_download_protections
-      WHERE video_id=? AND user_id=? LIMIT 1
-    `).get(owner.video_id, owner.user_id)) continue;
+    if (protections.userPairs.has(`${owner.user_id}:${owner.video_id}`)) continue;
+    if (protections.followedPairs.has(`${owner.user_id}:${owner.video_id}`)) continue;
     const finishedAt = sqliteTime(owner.finished_at);
     const watchedAt = sqliteTime(owner.watched_at) ?? finishedAt;
     const retentionExpired = finishedAt != null && finishedAt <= now - profileSettings.retention_days * 86_400_000;
@@ -793,7 +803,7 @@ async function cleanup(s: DlSettings) {
     for (const row of candidates) {
       if (total <= cap) break;
       if (manifestRecovery.recoveredVideoIds.has(row.video_id)) continue;
-      if (await physicalDownloadProtected(row.video_id)) continue;
+      if (await physicalDownloadProtected(row.video_id, protections, settingsByUser)) continue;
       await tombstone(row.video_id);
       total -= row.size_bytes ?? 0;
       log.info("downloads.evicted_for_space", { videoId: row.video_id });

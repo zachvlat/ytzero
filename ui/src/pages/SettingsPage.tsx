@@ -4,8 +4,8 @@ import { useSettingsPageController } from "./useSettingsPageController";
 import { SettingsDisplayView } from "../components/settings/SettingsDisplayView";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArchiveRestore, ArrowRight, BellRing, Check, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, ExternalLink, Eye, EyeOff, FileText, Filter, FolderUp, GripVertical, Info, LoaderCircle, Pencil, Play, Plug, Plus, Radio, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Tv, UserMinus, UserPlus, UsersRound, Wrench, X, Zap } from "lucide-react";
-import { api, type AppChangelog, type AppLogs, type AppLogStreamEvent, type AppVersion, type AuthMethod, type Channel, type ChildLockStatus, type FilterRule, type MembersOnlyVisibility, type PluginManifest, type PluginSettingsResponse, type Profile, type ProfilePermissions, type Rule, type Tag, type UpdateCheck, type UserPlaylist, type UserPlaylistRule, type Video, SB_CATEGORIES } from "../api";
+import { AlertTriangle, ArchiveRestore, ArrowRight, BellRing, Check, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, ExternalLink, Eye, EyeOff, FileText, FolderUp, GripVertical, Info, LoaderCircle, Pencil, Play, Plug, Plus, Radio, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Tv, UserMinus, UserPlus, UsersRound, Wrench, X, Zap } from "lucide-react";
+import { api, type AppChangelog, type AppLogs, type AppLogStreamEvent, type AppVersion, type AuthMethod, type Channel, type ChildLockStatus, type MembersOnlyVisibility, type PluginManifest, type PluginSettingsResponse, type Profile, type ProfilePermissions, type Rule, type Tag, type UpdateCheck, type UserPlaylist, type UserPlaylistRule, type Video, SB_CATEGORIES } from "../api";
 import { NAV_ITEMS, normalizeNav, parseNavConfig, type NavConfigEntry } from "../nav";
 import { img } from "../img";
 import TagChip from "../components/TagChip";
@@ -30,7 +30,7 @@ import DatabaseSettings from "../components/DatabaseSettings";
 import { FollowedPlaylistSettingsList } from "../components/settings/FollowedPlaylistSettingsList";
 import { scheduleSettingWrite } from "../settingsWriteQueue";
 import ProfilesSettings, { ProfilePasswordSettings } from "../components/settings/ProfileSettings";
-import { ChannelOwnership, FilterRuleGroups, PlaylistSettingsItem, PluginMultiselect, RuleRow, SidebarNavEditor, TagRow } from "../components/settings/SettingsEditors";
+import { ChannelOwnership, PlaylistSettingsItem, PluginMultiselect, RuleRow, SidebarNavEditor, TagRow } from "../components/settings/SettingsEditors";
 import { ChangelogNote, LogLine, SettingsLoadingState } from "../components/settings/SettingsSupport";
 import { SettingsSearch } from "../components/settings/SettingsSearch";
 import ChannelSettingsDialog, { hasCustomChannelSettings } from "../components/settings/ChannelSettingsDialog";
@@ -53,7 +53,6 @@ export default function SettingsPage({ showToast }: { showToast: (m: string) => 
   const {
     activeAuthMethod,
     addChannel,
-    addFilterRule,
     addPlaylist,
     addRule,
     addTag,
@@ -108,12 +107,6 @@ export default function SettingsPage({ showToast }: { showToast: (m: string) => 
     feedMaxAgeUnit,
     feedMaxAgeValue,
     fileRef,
-    filterAction,
-    filterChannel,
-    filterField,
-    filterMatch,
-    filterPattern,
-    filterRules,
     filteredChannels,
     followExternalChannel,
     followedPlaylists,
@@ -186,11 +179,6 @@ export default function SettingsPage({ showToast }: { showToast: (m: string) => 
     setChannelUrl,
     setEnablePin,
     setEnablePinConfirm,
-    setFilterAction,
-    setFilterChannel,
-    setFilterField,
-    setFilterMatch,
-    setFilterPattern,
     setKeyboardSeekSeconds,
     setLanguage,
     setLogsAutoScroll,
@@ -630,36 +618,6 @@ export default function SettingsPage({ showToast }: { showToast: (m: string) => 
             <FollowedPlaylistSettingsList playlists={followedPlaylists} onChanged={loadFollowedPlaylists} />
           )}
 
-          {channelSubTab === "filters" && canManageArea("filters") && (
-            <>
-              <Text tone="secondary">
-                {t("filterHint")}
-              </Text>
-              <div className="form-row" style={{ flexWrap: "wrap" }}>
-                <Input
-                  type="text"
-                  placeholder={t("patternPlaceholder")}
-                  style={{ flex: 1, minWidth: 160 }}
-                  value={filterPattern}
-                  onChange={(e) => setFilterPattern(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addFilterRule()}
-                />
-                <SelectMenu label={t("contains")} value={filterMatch} options={[{ value: "contains", label: t("contains") }, { value: "regex", label: "regex" }]} onChange={setFilterMatch} />
-                <SelectMenu label={t("inTitle")} value={filterField} options={[{ value: "title", label: t("inTitle") }, { value: "description", label: t("inDescription") }, { value: "both", label: t("titleOrDescription") }]} onChange={setFilterField} />
-                <SelectMenu label={t("rejectMatching")} value={filterAction} options={[{ value: "reject", label: t("rejectMatching") }, { value: "whitelist", label: t("onlyMatching") }]} onChange={setFilterAction} />
-                <SelectMenu label={t("allChannels")} value={filterChannel} options={[{ value: "", label: t("allChannels") }, ...channels.filter((channel) => channel.followed !== 0).map((channel) => ({ value: channel.channel_id, label: channel.title || channel.channel_id }))]} onChange={setFilterChannel} searchable searchPlaceholder={t("searchChannelPlaceholder")} />
-                <Button variant="primary" onClick={addFilterRule} disabled={!filterPattern.trim()}>
-                  <Plus /> {t("addFilter")}
-                </Button>
-              </div>
-              {loading && filterRules.length === 0 ? (
-                <TableSkeleton rows={5} columns={3} />
-              ) : (
-                <FilterRuleGroups rules={filterRules} channels={channels} onSave={async (id, patch) => { await api.updateFilterRule(id, patch); load(); }} onRemove={(id) => api.removeFilterRule(id).then(load)} />
-              )}
-              {!loading && filterRules.length === 0 && <div className="muted" style={{ paddingTop: 8 }}>{t("noFilterRules")}</div>}
-            </>
-          )}
         </SettingsSection>
       )}
 

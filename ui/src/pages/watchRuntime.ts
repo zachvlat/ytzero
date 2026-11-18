@@ -104,9 +104,3 @@ export function isMissingVideoError(error: Error): boolean {
   return error.message === "not found" || error.message === "HTTP 404";
 }
 
-export function canAutoArchiveVideo(
-  video: { video_id: string; live_status: string } | null,
-  routeVideoId: string | undefined,
-): boolean {
-  return Boolean(video && video.video_id === routeVideoId && video.live_status !== "live" && video.live_status !== "upcoming");
-}

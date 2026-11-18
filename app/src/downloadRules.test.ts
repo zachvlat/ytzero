@@ -29,9 +29,8 @@ describe("download automation rules", () => {
     expect(result.preview.sample.map((video: any) => video.video_id)).toEqual(["rule-main"]);
   });
 
-  test("does not queue watched, archived, or imported history entries", () => {
+  test("does not queue watched or imported history entries", () => {
     expect(result.preview.sample.map((video: any) => video.video_id)).not.toContain("rule-watched");
-    expect(result.preview.sample.map((video: any) => video.video_id)).not.toContain("rule-archived");
     expect(result.preview.sample.map((video: any) => video.video_id)).not.toContain("rule-imported");
   });
 

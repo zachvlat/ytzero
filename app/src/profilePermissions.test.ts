@@ -34,7 +34,6 @@ describe("profile administrator permissions", () => {
       "followed_playlists",
       "imports",
       "tags",
-      "filters",
       "appearance",
       "feed",
       "navigation",
@@ -79,7 +78,6 @@ describe("profile administrator permissions", () => {
     expect(permissionAreaForMutation("/channel-playlists/PL123/follow")).toBe("followed_playlists");
     expect(permissionAreaForMutation("/channels/import")).toBe("imports");
     expect(permissionAreaForMutation("/import/analyze")).toBe("imports");
-    expect(permissionAreaForMutation("/filter-rules/1")).toBe("filters");
     expect(permissionAreaForMutation("/playlists/1/videos")).toBe("playlists");
     expect(permissionAreaForMutation("/public-shares/share-id/rotate")).toBe("public_sharing");
     expect(permissionAreaForMutation("/profiles/2")).toBeNull();

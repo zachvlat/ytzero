@@ -1,7 +1,7 @@
 import type { Context, Hono } from "hono";
 import { applyRuleToAllVideos } from "../autotags";
 import { database } from "../database";
-import { applyFilterRuleToAll } from "../filterRules"; import { hiddenFilterTagUuids, setTagHiddenFromFilters } from "../tagFilterVisibility";
+import { hiddenFilterTagUuids, setTagHiddenFromFilters } from "../tagFilterVisibility";
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
 type ApiContext = Context<ApiEnvironment>;
@@ -100,48 +100,6 @@ api.delete("/rules/:id", async (c) => {
     await database.prepare("DELETE FROM notification_preferences WHERE user_id=? AND kind='tag_rule' AND source_id=? AND EXISTS (SELECT 1 FROM auto_tag_rules WHERE id=? AND user_id=?)").run(uid, id, id, uid);
     await database.prepare("DELETE FROM auto_tag_rules WHERE id = ? AND user_id = ?").run(id, uid);
   })();
-  return c.json({ ok: true });
-});
-
-// ---------- filter rules ----------
-
-api.get("/filter-rules", async (c) => {
-  const uid = currentUserId(c);
-  const rules = await database.prepare(
-    `SELECT fr.*, COALESCE(c.custom_title, c.title) AS channel_title FROM filter_rules fr
-     LEFT JOIN channels c ON c.channel_id = fr.channel_id WHERE fr.user_id = ? ORDER BY fr.id`
-  ).all(uid);
-  return c.json({ rules });
-});
-
-api.post("/filter-rules", async (c) => {
-  const uid = currentUserId(c);
-  const { pattern, match_type = "contains", field = "title", action = "reject", channel_id = null } = await c.req.json();
-  if (!pattern?.trim()) return c.json({ error: "pattern required" }, 400);
-  const row = await database
-    .prepare("INSERT INTO filter_rules (pattern, match_type, field, action, channel_id, user_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING *")
-    .get(pattern.trim(), match_type, field, action, channel_id || null, uid) as any;
-  const archived = await applyFilterRuleToAll(row.id);
-  return c.json({ rule: row, archived });
-});
-
-api.patch("/filter-rules/:id", async (c) => {
-  const uid = currentUserId(c);
-  const { pattern, match_type, field, action, channel_id } = await c.req.json();
-  const id = c.req.param("id");
-  if (!await database.prepare("SELECT 1 FROM filter_rules WHERE id = ? AND user_id = ?").get(id, uid)) return c.json({ error: "not found" }, 404);
-  if (pattern !== undefined) await database.prepare("UPDATE filter_rules SET pattern = ? WHERE id = ?").run(pattern.trim(), id);
-  if (match_type !== undefined) await database.prepare("UPDATE filter_rules SET match_type = ? WHERE id = ?").run(match_type, id);
-  if (field !== undefined) await database.prepare("UPDATE filter_rules SET field = ? WHERE id = ?").run(field, id);
-  if (action !== undefined) await database.prepare("UPDATE filter_rules SET action = ? WHERE id = ?").run(action, id);
-  if (channel_id !== undefined) await database.prepare("UPDATE filter_rules SET channel_id = ? WHERE id = ?").run(channel_id || null, id);
-  const rule = await database.prepare("SELECT fr.*, COALESCE(c.custom_title, c.title) AS channel_title FROM filter_rules fr LEFT JOIN channels c ON c.channel_id = fr.channel_id WHERE fr.id = ?").get(id);
-  return c.json({ rule });
-});
-
-api.delete("/filter-rules/:id", async (c) => {
-  const uid = currentUserId(c);
-  await database.prepare("DELETE FROM filter_rules WHERE id = ? AND user_id = ?").run(c.req.param("id"), uid);
   return c.json({ ok: true });
 });
 

@@ -25,7 +25,6 @@ const defaultPermissions = await (await request(secondary.id, "/profile-permissi
 const adminSettings = await request(1, "/settings", "PUT", { show_shorts: "1" });
 const restrictedSettings = await request(secondary.id, "/settings", "PUT", { show_shorts: "1" });
 const defaultTag = await request(secondary.id, "/tags", "POST", { name: "Allowed", color: "#123456" });
-const defaultFilter = await request(secondary.id, "/filter-rules", "POST", { pattern: "spoiler", match_type: "contains", field: "title", action: "reject" });
 const restrictedImport = await request(secondary.id, "/import/analyze", "POST", {});
 
 const unlockResponse = await request(secondary.id, "/child-lock/unlock", "POST", { pin: "123456" });
@@ -53,14 +52,13 @@ const defaultRoleCandidate = (await createDefaultRoleResponse.json() as any).gro
 const setTemporaryDefaultResponse = await request(1, "/access-control/default-group", "PUT", { group_id: defaultRoleCandidate.id });
 const deleteDefaultRoleResponse = await request(1, `/access-control/groups/${defaultRoleCandidate.id}?replacement_group_id=${snapshot.default_group_id}`, "DELETE");
 const deletedDefaultRoleSnapshot = await deleteDefaultRoleResponse.json() as any;
-const policyResponse = await request(1, `/access-control/profiles/${secondary.id}`, "PUT", { group_id: secondaryAccess.group_id, overrides: { filters: "deny", playlists: "deny", followed_playlists: "deny", playback: "deny" } });
+const policyResponse = await request(1, `/access-control/profiles/${secondary.id}`, "PUT", { group_id: secondaryAccess.group_id, overrides: { playlists: "deny", followed_playlists: "deny", playback: "deny" } });
 const policy = await policyResponse.json() as any;
 const pinLockedSettings = await request(secondary.id, "/settings", "PUT", { show_shorts: "0" });
 const delegatedSettings = await request(secondary.id, "/settings", "PUT", { show_shorts: "0" }, unlockCookie);
 const restrictedPlayback = await request(secondary.id, "/settings", "PUT", { player_speed: "1.5" }, unlockCookie);
 const restrictedPlaylist = await request(secondary.id, "/playlists", "POST", { name: "Blocked" }, unlockCookie);
 const restrictedFollowedPlaylist = await request(secondary.id, "/channel-playlists/PLblocked/follow", "PUT", { followed: true }, unlockCookie);
-const restrictedFilter = await request(secondary.id, "/filter-rules", "POST", { pattern: "blocked", match_type: "contains", field: "title", action: "reject" }, unlockCookie);
 const delegatedProfile = await request(secondary.id, `/profiles/${secondary.id}`, "PATCH", { name: "Renamed" }, unlockCookie);
 const forbiddenPolicy = await request(secondary.id, "/access-control/profiles/1", "PUT", { group_id: secondaryAccess.group_id }, unlockCookie);
 
@@ -99,7 +97,6 @@ console.log("RESULT " + JSON.stringify({
   adminSettingsStatus: adminSettings.status,
   restrictedSettingsStatus: restrictedSettings.status,
   defaultTagStatus: defaultTag.status,
-  defaultFilterStatus: defaultFilter.status,
   restrictedImportStatus: restrictedImport.status,
   unlockStatus: unlockResponse.status,
   restrictedAfterPinStatus: restrictedAfterPin.status,
@@ -110,7 +107,6 @@ console.log("RESULT " + JSON.stringify({
   restrictedPlaybackStatus: restrictedPlayback.status,
   restrictedPlaylistStatus: restrictedPlaylist.status,
   restrictedFollowedPlaylistStatus: restrictedFollowedPlaylist.status,
-  restrictedFilterStatus: restrictedFilter.status,
   delegatedProfileStatus: delegatedProfile.status,
   forbiddenPolicyStatus: forbiddenPolicy.status,
   forbiddenLogsStatus: forbiddenLogs.status,

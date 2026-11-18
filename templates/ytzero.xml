@@ -7,14 +7,14 @@
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
 
-  <Icon>https://raw.githubusercontent.com/Pelski/ytzero/main/docs/assets/icon.png</Icon>
+  <Icon>https://raw.githubusercontent.com/Pelski/ytzero/main/docs/assets/icon.svg</Icon>
   <WebUI>http://[IP]:[PORT:3001]/</WebUI>
   <Overview>A self-hosted YouTube inbox for people who want subscriptions, not recommendations. YT Zero reads public YouTube RSS feeds, stores everything locally in SQLite, and provides a calm place to sort, schedule, watch, archive and revisit videos from chosen creators. No Google account, API key or algorithmic home feed is required. The app starts empty; add channels from Settings, then Channels.</Overview>
 
   <Support>https://github.com/Pelski/ytzero/issues</Support>
   <Project>https://github.com/Pelski/ytzero</Project>
   <TemplateURL>https://raw.githubusercontent.com/Pelski/ytzero/main/templates/ytzero.xml</TemplateURL>
-  <ReadMe>https://raw.githubusercontent.com/Pelski/ytzero/main/README.md</ReadMe>
+  <ReadMe>https://github.com/Pelski/ytzero</ReadMe>
 
   <Category>MediaApp:Video Tools:Utilities</Category>
   <ExtraSearchTerms>YouTube subscriptions inbox RSS offline yt-dlp Degoogle</ExtraSearchTerms>

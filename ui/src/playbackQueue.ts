@@ -9,7 +9,6 @@ export type PlaybackQueueContext =
   | { version: 1; kind: "feed"; tags: number[]; showAll: boolean; sort: "published" | "arrival" }
   | { version: 1; kind: "liked"; showShorts: boolean }
   | { version: 1; kind: "history" }
-  | { version: 1; kind: "archive" }
   | { version: 1; kind: "user-playlist"; playlistUuid: string; sort: (typeof USER_PLAYLIST_SORTS)[number] }
   | { version: 1; kind: "channel-playlist"; playlistId: string; sort: (typeof PLAYLIST_SORTS)[number] }
   | { version: 1; kind: "watchlist"; sort: WatchlistSort; dueOnly: boolean }
@@ -36,5 +35,5 @@ export function isPlaybackQueueContext(value: unknown): value is PlaybackQueueCo
   if (queue.kind === "channel-playlist") return typeof queue.playlistId === "string" && queue.playlistId.length > 0
     && (PLAYLIST_SORTS as readonly unknown[]).includes(queue.sort);
   if (queue.kind === "watchlist") return typeof queue.dueOnly === "boolean" && (WATCHLIST_SORTS as readonly unknown[]).includes(queue.sort);
-  return queue.kind === "history" || queue.kind === "archive" || queue.kind === "recommendations" || queue.kind === "in-progress";
+  return queue.kind === "history" || queue.kind === "recommendations" || queue.kind === "in-progress";
 }

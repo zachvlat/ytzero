@@ -10,7 +10,6 @@ export type EmptyArtScene =
   | "scheduleClear"
   | "offAir"
   | "noDownloads"
-  | "archiveEmpty"
   | "nothingLiked"
   | "noHistory"
   | "noShorts"
@@ -27,7 +26,6 @@ const GLYPH: Record<EmptyArtScene, string> = {
   // The centre dot is what stops the two arcs from reading as parentheses.
   offAir: "M104 64 A9 9 0 0 1 104 52 M116 64 A9 9 0 0 1 116 52 M110 58 h0.01",
   noDownloads: "M110 50 V62 M104.5 56.5 L110 62 L115.5 56.5",
-  archiveEmpty: "M103 53.5 H117 M105.5 53.5 V64 H114.5 V53.5",
   nothingLiked: "M110 65.5 C110 65.5 101.5 59.5 101.5 55.2 A4.3 4.3 0 0 1 110 53.2 A4.3 4.3 0 0 1 118.5 55.2 C118.5 59.5 110 65.5 110 65.5 Z",
   noHistory: "M102.5 57.5 A7.5 7.5 0 1 0 105 52 M102 47.5 V53.5 H108",
   noShorts: "M106 51.5 L117.5 58 L106 64.5 Z",
@@ -95,12 +93,6 @@ function Subject({ scene }: { scene: EmptyArtScene }) {
         <rect className="empty-art__base" x="58" y="98" width="104" height="36" rx="9" />
         <path className="empty-art__line" d="M74 116 H104" />
         <circle className="empty-art__dot" cx="146" cy="116" r="3.6" />
-      </>;
-    case "archiveEmpty":
-      return <>
-        <rect className="empty-art__base" x="52" y="86" width="116" height="17" rx="5" />
-        <path className="empty-art__base" d="M60 103 H160 V126 A8 8 0 0 1 152 134 H68 A8 8 0 0 1 60 126 Z" />
-        <path className="empty-art__line" d="M98 117 H122" />
       </>;
     case "nothingLiked":
       return <>
@@ -185,12 +177,6 @@ function Atmosphere({ scene, cardId }: { scene: EmptyArtScene; cardId: string })
         <Card id={cardId} x={48} y={32} w={42} h={26} r={7} rotate={-10} opacity={0.3} />
         <Card id={cardId} x={132} y={26} w={40} h={25} r={6} rotate={9} opacity={0.24} />
         <Sparkle x={30} y={72} size={7} opacity={0.3} />
-      </>;
-    case "archiveEmpty":
-      return <>
-        <Card id={cardId} x={50} y={28} w={42} h={26} r={7} rotate={-10} opacity={0.3} play />
-        <Sparkle x={30} y={70} size={7} opacity={0.3} />
-        <Sparkle x={190} y={66} size={6} opacity={0.22} />
       </>;
     case "nothingLiked":
       return <>

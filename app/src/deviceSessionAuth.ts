@@ -14,7 +14,6 @@ type ApiEnvironment = {
 type ApiContext = Context<ApiEnvironment>;
 
 interface BearerAuthAccess {
-  profileFromCookie: (context: ApiContext) => Promise<number>;
   setDelegatedProfileAdmin: (context: ApiContext, userId: number) => Promise<void>;
 }
 
@@ -31,8 +30,20 @@ export function authSessionToken(
     ?? parseCookies(context.req.header("cookie"))[AUTH_SESSION_COOKIE];
 }
 
+// Only endpoints that must work before a session exists. Everything else under
+// /auth enforces its own authorization behind this gate.
+const AUTH_FREE_PATHS = new Set([
+  "/auth/status",
+  "/auth/password/login",
+  "/auth/passkey/login/options",
+  "/auth/passkey/login/verify",
+  "/auth/oidc/login",
+  "/auth/oidc/callback",
+  "/auth/logout",
+]);
+
 export function isAuthFreePath(path: string): boolean {
-  return path.startsWith("/auth") || path === "/config";
+  return AUTH_FREE_PATHS.has(path) || path === "/config";
 }
 
 export async function persistSessionProfile(
@@ -56,13 +67,13 @@ export async function persistSessionProfile(
 export async function revalidateBearerRequest(
   context: ApiContext,
   expectedUserId: number,
-  profileFromCookie: (context: ApiContext) => Promise<number>,
 ): Promise<boolean | undefined> {
   const bearer = bearerSessionToken(context.req.header("authorization"));
   if (!bearer) return undefined;
   const session = await validateSession(bearer, { renew: true });
   if (!session) return false;
-  const userId = session.scope === "account" ? session.user_id ?? await profileFromCookie(context) : session.user_id ?? 0;
+  // An unbound account session has no profile identity, so it cannot claim a user.
+  const userId = session.user_id ?? 0;
   return userId === expectedUserId;
 }
 
@@ -83,9 +94,9 @@ export async function authenticateBearerRequest(
     context.set("userId", 0);
     return "invalid";
   }
-  const userId = session.scope === "account"
-    ? session.user_id ?? await access.profileFromCookie(context)
-    : session.user_id ?? 0;
+  // Account sessions only gain a profile after /profiles/switch pins user_id;
+  // the unsigned profile cookie is never an identity for an authenticated session.
+  const userId = session.user_id ?? 0;
   context.set("userId", userId);
   context.set("sessionAdmin", session.is_admin);
   if (session.permission_group_uuid) context.set("permissionGroupUuid", session.permission_group_uuid);

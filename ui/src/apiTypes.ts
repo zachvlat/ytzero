@@ -27,7 +27,7 @@ export interface Video {
   is_private: number;
   is_unavailable?: number;
   live_status: "none" | "upcoming" | "live" | "was_live";
-  status: "inbox" | "queued" | "archived";
+  status: "inbox" | "queued";
   bucket: Bucket | null;
   show_from: string | null;
   is_short: number | null;
@@ -135,15 +135,6 @@ export interface Rule {
   field: "title" | "description" | "both";
   tag_name: string;
   tag_color: string;
-}
-export interface FilterRule {
-  id: number;
-  pattern: string;
-  match_type: "contains" | "regex";
-  field: "title" | "description" | "both";
-  action: "reject" | "whitelist";
-  channel_id: string | null;
-  channel_title: string | null;
 }
 export interface ChannelLink {
   title: string;

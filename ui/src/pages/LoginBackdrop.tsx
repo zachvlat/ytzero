@@ -3,7 +3,7 @@ import { EmptyArtMotif, type EmptyArtScene } from "../components/illustrations/E
 
 const FEATURES: EmptyArtScene[] = [
   "noSubscriptions", "noDownloads", "noHistory", "noDiscovery", "playlistEmpty", "offAir",
-  "scheduleClear", "noInsights", "nothingLiked", "noShorts", "archiveEmpty", "inboxZero",
+  "scheduleClear", "noInsights", "nothingLiked", "noShorts", "inboxZero",
 ];
 
 type Zone = { x: [number, number]; y: [number, number] };

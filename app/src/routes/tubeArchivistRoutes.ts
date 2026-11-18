@@ -13,7 +13,10 @@ type Api = Hono<ApiEnvironment>;
 type ApiContext = Context<ApiEnvironment>;
 
 export function registerTubeArchivistRoutes(api: Api, isAdmin: (context: ApiContext) => boolean): void {
-  api.get("/plugins/tubearchivist/config", async (c) => c.json(await tubeArchivistStatus()));
+  api.get("/plugins/tubearchivist/config", async (c) => {
+    if (!isAdmin(c)) return c.json({ error: "admin only" }, 403);
+    return c.json(await tubeArchivistStatus());
+  });
 
   api.put("/plugins/tubearchivist/config", async (c) => {
     if (!isAdmin(c)) return c.json({ error: "admin only" }, 403);

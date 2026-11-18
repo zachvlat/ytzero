@@ -225,10 +225,6 @@ export default function ShortsPage() {
     }
   }, [likedOnly]);
 
-  const handleRemoved = useCallback((videoId: string) => {
-    setVideos((prev) => prev.filter((v) => v.video_id !== videoId));
-  }, []);
-
   return (
     <>
       {playerIdx !== null && (
@@ -288,7 +284,6 @@ export default function ShortsPage() {
                   key={v.video_id}
                   video={v}
                   onPlay={openPlayer}
-                  onRemoved={handleRemoved}
                   onWatched={handleWatched}
                   onLiked={handleLiked}
                   isWatched={isWatched(v)}

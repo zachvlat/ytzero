@@ -25,7 +25,6 @@ import "./CleanupPage.css";
 import { addCalendarDays, appDayKey } from "../dateTime";
 
 type CleanupStatus = NonNullable<CleanupFilter["status"]>;
-type CleanupAction = "archive" | "watched";
 type ChannelMode = "include" | "exclude";
 type Side = "clean" | "remain";
 
@@ -55,7 +54,6 @@ export default function CleanupPage() {
   const [loadingPreview, setLoadingPreview] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const [action, setAction] = useState<CleanupAction>("archive");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState<{ affected: number } | null>(null);
@@ -157,7 +155,7 @@ export default function CleanupPage() {
   const apply = async () => {
     setApplying(true);
     try {
-      const result = await api.cleanupApply(filter, action, excludeArray);
+      const result = await api.cleanupApply(filter, "watched", excludeArray);
       setConfirmOpen(false);
       setExcludedVideoIds(new Set());
       setApplied({ affected: result.affected });
@@ -344,15 +342,6 @@ export default function CleanupPage() {
           )}
 
           <div className="cleanup-action-bar">
-            <SegmentedControl
-              value={action}
-              onChange={setAction}
-              label={t("cleanupActionLabel")}
-              options={[
-                { value: "archive", label: t("cleanupActionArchive") },
-                { value: "watched", label: t("cleanupActionWatched") },
-              ]}
-            />
             <Button
               variant="primary"
               disabled={cleanResult.total === 0}
@@ -382,7 +371,7 @@ export default function CleanupPage() {
         <p>
           {t("cleanupConfirmBody", {
             count: formatVideoCount(cleanResult.total, language),
-            action: action === "archive" ? t("cleanupActionArchive") : t("cleanupActionWatched"),
+            action: t("cleanupActionWatched"),
           })}
         </p>
       </Dialog>

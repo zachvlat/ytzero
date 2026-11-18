@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import "./SettingsPage.css";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArchiveRestore, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, ExternalLink, Eye, EyeOff, FileText, Filter, FolderUp, GripVertical, Info, ListMinus, LoaderCircle, ListMusic, Pencil, Play, Plug, Plus, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Trash2, Tv, UserMinus, UserPlus, UsersRound, Wrench, X, Zap } from "lucide-react";
-import { api, type AppChangelog, type AppLogs, type AppLogStreamEvent, type AppVersion, type AuthMethod, type Channel, type ChannelManualStatus, type ChildLockStatus, type FilterRule, type FollowedPlaylist, type MembersOnlyVisibility, type PluginManifest, type PluginSettingsResponse, type Profile, type ProfilePermissionArea, type ProfilePermissions, type Rule, type ShortsFeedMode, type Tag, type UpdateCheck, type UserPlaylist, type UserPlaylistRule, type Video, SB_CATEGORIES } from "../api";
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, ExternalLink, Eye, EyeOff, FileText, FolderUp, GripVertical, Info, ListMinus, LoaderCircle, ListMusic, Pencil, Play, Plug, Plus, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Trash2, Tv, UserMinus, UserPlus, UsersRound, Wrench, X, Zap } from "lucide-react";
+import { api, type AppChangelog, type AppLogs, type AppLogStreamEvent, type AppVersion, type AuthMethod, type Channel, type ChannelManualStatus, type ChildLockStatus, type FollowedPlaylist, type MembersOnlyVisibility, type PluginManifest, type PluginSettingsResponse, type Profile, type ProfilePermissionArea, type ProfilePermissions, type Rule, type ShortsFeedMode, type Tag, type UpdateCheck, type UserPlaylist, type UserPlaylistRule, type Video, SB_CATEGORIES } from "../api";
 import { parseCustomPlaybackSpeeds } from "../../../shared/playbackSpeeds";
 import { normalizeWatchCommentsMode, type WatchCommentsMode } from "../../../shared/watchComments";
 import { normalizeChannelOpenSyncMode, type ChannelOpenSyncMode } from "../../../shared/channelSyncModes";
@@ -33,7 +33,7 @@ import { mergeRemoteChangelog } from "../changelog";
 import DatabaseSettings from "../components/DatabaseSettings";
 import { scheduleSettingWrite } from "../settingsWriteQueue";
 import ProfilesSettings, { ProfilePasswordSettings } from "../components/settings/ProfileSettings";
-import { ChannelOwnership, FilterRuleGroups, PlaylistSettingsItem, PluginMultiselect, RuleRow, SidebarNavEditor, TagRow } from "../components/settings/SettingsEditors";
+import { ChannelOwnership, PlaylistSettingsItem, PluginMultiselect, RuleRow, SidebarNavEditor, TagRow } from "../components/settings/SettingsEditors";
 import { ChangelogNote, LogLine, SettingsLoadingState } from "../components/settings/SettingsSupport";
 
 type Tab = "channels" | "tags" | "playlists" | "display" | "notifications" | "plugins" | "sharing" | "advanced" | "profiles" | "auth" | "cluster";
@@ -91,7 +91,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   const requestedTab = searchParams.get("tab");
   const tab: Tab = SETTINGS_AREAS.some((item) => item.id === requestedTab) ? requestedTab as Tab : "channels";
   const section = searchParams.get("section");
-  const channelSubTab: "list" | "playlists" | "filters" = section === "filters" || section === "playlists" ? section : "list";
+  const channelSubTab: "list" | "playlists" = section === "playlists" ? section : "list";
   const tagSubTab: "list" | "rules" = section === "rules" ? "rules" : "list";
   const displaySubTab: "appearance" | "feed" | "navigation" | "playback" | "subtitles" | "screenshots" | "privacy" = section === "feed" || section === "navigation" || section === "playback" || section === "subtitles" || section === "screenshots" || section === "privacy" ? section : section === "sponsorblock" ? "privacy" : "appearance";
   const advancedSubTab: "external" | "logs" | "changelog" | "dangerous" = section === "external" || section === "logs" || section === "dangerous" ? section : "changelog";
@@ -102,14 +102,13 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     setSearchParams(next, { replace: true });
   };
   const setTab = (nextTab: Tab) => setSettingsRoute(nextTab);
-  const setChannelSubTab = (nextSection: "list" | "playlists" | "filters") => setSettingsRoute("channels", nextSection === "list" ? undefined : nextSection);
+  const setChannelSubTab = (nextSection: "list" | "playlists") => setSettingsRoute("channels", nextSection === "list" ? undefined : nextSection);
   const setTagSubTab = (nextSection: "list" | "rules") => setSettingsRoute("tags", nextSection === "list" ? undefined : nextSection);
   const setDisplaySubTab = (nextSection: "appearance" | "feed" | "navigation" | "playback" | "subtitles" | "screenshots" | "privacy") => setSettingsRoute("display", nextSection === "appearance" ? undefined : nextSection);
   const setAdvancedSubTab = (nextSection: "external" | "logs" | "changelog" | "dangerous") => setSettingsRoute("advanced", nextSection === "changelog" ? undefined : nextSection);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
-  const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [followedPlaylists, setFollowedPlaylists] = useState<FollowedPlaylist[]>([]);
   const [playlistRules, setPlaylistRules] = useState<Record<number, UserPlaylistRule[]>>({});
@@ -153,11 +152,6 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   const [ruleTag, setRuleTag] = useState<number | "">("");
   const [ruleMatch, setRuleMatch] = useState("contains");
   const [ruleField, setRuleField] = useState("title");
-  const [filterPattern, setFilterPattern] = useState("");
-  const [filterMatch, setFilterMatch] = useState("contains");
-  const [filterField, setFilterField] = useState("title");
-  const [filterAction, setFilterAction] = useState("reject");
-  const [filterChannel, setFilterChannel] = useState("");
   const [playlistName, setPlaylistName] = useState("");
   const [playlistIcon, setPlaylistIcon] = useState("ListMusic");
   const [appName, setAppName] = useState("YT Zero");
@@ -226,13 +220,12 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [ch, unfollowed, tg, rl, fr, pl] = await Promise.all([api.channels(), api.unfollowedChannels(), api.tags(), api.rules(), api.filterRules(), api.userPlaylists()]);
+      const [ch, unfollowed, tg, rl, pl] = await Promise.all([api.channels(), api.unfollowedChannels(), api.tags(), api.rules(), api.userPlaylists()]);
       setChannels([...ch.channels, ...unfollowed.channels]
         .map((channel) => ({ ...channel, tags: channel.tags ?? [] }))
         .sort((a, b) => a.title.localeCompare(b.title, locale)));
       setTags(tg.tags);
       setRules(rl.rules);
-      setFilterRules(fr.rules);
       setPlaylists(pl.playlists);
       const rulePairs = await Promise.all(pl.playlists.map(async (p) => [p.id, (await api.userPlaylistRules(p.id)).rules] as const));
       setPlaylistRules(Object.fromEntries(rulePairs));
@@ -1043,20 +1036,6 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     emit("playlists-changed");
   };
 
-  const addFilterRule = async () => {
-    if (!filterPattern.trim()) return;
-    const r = await api.addFilterRule({
-      pattern: filterPattern.trim(),
-      match_type: filterMatch,
-      field: filterField,
-      action: filterAction,
-      channel_id: filterChannel || null,
-    });
-    showToast(t("ruleRejected", { n: r.archived }));
-    setFilterPattern("");
-    load();
-  };
-
   const toggleChannelTag = async (channelId: string, tag: Tag) => {
     const channel = channels.find((ch) => ch.channel_id === channelId);
     const exists = channel?.tags.some((t) => t.id === tag.id);
@@ -1091,10 +1070,9 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
       })
     : channels;
   const canManageArea = (area: ProfilePermissionArea) => isPrimary || profilePermissions.effective.includes(area);
-  const channelSubTabOptions: { value: "list" | "playlists" | "filters"; label: string; count: number }[] = [
+  const channelSubTabOptions: { value: "list" | "playlists"; label: string; count: number }[] = [
     ...(canManageArea("channels") ? [{ value: "list" as const, label: t("channels"), count: channels.length }] : []),
     ...(canManageArea("followed_playlists") ? [{ value: "playlists" as const, label: t("followedPlaylists"), count: followedPlaylists.length }] : []),
-    ...(canManageArea("filters") ? [{ value: "filters" as const, label: t("filters"), count: filterRules.length }] : []),
   ];
   const displaySubTabOptions: { value: "appearance" | "feed" | "navigation" | "playback" | "subtitles" | "screenshots" | "privacy"; label: string }[] = [
     ...(canManageArea("appearance") ? [{ value: "appearance" as const, label: t("displayAppearance") }] : []),
@@ -1108,7 +1086,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     ] : []),
   ];
   const currentPermissionArea = tab === "channels"
-    ? channelSubTab === "playlists" ? "followed_playlists" : channelSubTab === "filters" ? "filters" : "channels"
+    ? channelSubTab === "playlists" ? "followed_playlists" : "channels"
     : tab === "display"
       ? displaySubTab === "appearance" || displaySubTab === "feed" || displaySubTab === "navigation" ? displaySubTab : "playback"
     : tab === "profiles" && activeAuthMethod === "per_profile" && !canManageArea("profiles") ? null
@@ -1144,7 +1122,6 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
       items: [
         ...(channelSubTabOptions.some((option) => option.value === "list") ? [{ value: "channels", label: t("channels"), count: channels.length }] : []),
         ...(channelSubTabOptions.some((option) => option.value === "playlists") ? [{ value: "channels:playlists", label: t("followedPlaylists"), count: followedPlaylists.length }] : []),
-        ...(channelSubTabOptions.some((option) => option.value === "filters") ? [{ value: "channels:filters", label: t("filters"), count: filterRules.length }] : []),
         ...(tabIsVisible("tags") ? [{ value: "tags", label: t("tags"), count: tags.length }, { value: "tags:rules", label: t("rules"), count: rules.length }] : []),
         ...(tabIsVisible("playlists") ? [{ value: "playlists", label: t("playlists"), count: playlists.length }] : []),
         { value: "downloads", label: t("downloadsTitle"), href: "/downloads?view=configuration", trailingIcon: <ExternalLink size={14} aria-hidden="true" /> },
@@ -1208,7 +1185,6 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   return {
     activeAuthMethod,
     addChannel,
-    addFilterRule,
     addPlaylist,
     addRule,
     addTag,
@@ -1265,12 +1241,6 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     feedMaxAgeUnit,
     feedMaxAgeValue,
     fileRef,
-    filterAction,
-    filterChannel,
-    filterField,
-    filterMatch,
-    filterPattern,
-    filterRules,
     filteredChannels,
     followExternalChannel,
     followedPlaylists,
@@ -1345,11 +1315,6 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     setChannelUrl,
     setEnablePin,
     setEnablePinConfirm,
-    setFilterAction,
-    setFilterChannel,
-    setFilterField,
-    setFilterMatch,
-    setFilterPattern,
     setKeyboardSeekSeconds,
     setLanguage,
     setLogsAutoScroll,

@@ -27,10 +27,10 @@ beforeAll(async () => {
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("watched Takeout videos and the feed", () => {
-  test("archives imported history and clears scheduling state", () => {
+  test("marks imported history watched and clears scheduling state", () => {
     expect(result.imported).toEqual({ historyAdded: 1, watchedMarked: 1 });
     expect(result.importedState).toEqual({
-      status: "archived",
+      status: "inbox",
       watched: 1,
       bucket: null,
       queued_at: null,
