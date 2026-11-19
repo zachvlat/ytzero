@@ -716,6 +716,14 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   }, [id]);
 
   useEffect(() => {
+    if (!id) return;
+    // Live status changes on a scheduler; follow it without a page reload.
+    return subscribeServerEvent("live", () => {
+      api.video(id).then((r) => setVideo(r.video)).catch(() => {});
+    });
+  }, [id]);
+
+  useEffect(() => {
     if (!id || !showRelated || !watchRelatedEnabled || watchRelatedSource !== "youtube") {
       setWatchRelatedResults([]);
       setWatchRelatedLoading(false);

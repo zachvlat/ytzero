@@ -950,7 +950,7 @@ export default function WatchPage() {
         )}
       </div>
       <aside>
-        {video?.live_status === "live" && (
+        {(video?.live_status === "live" || video?.live_status === "upcoming") && (
           <LiveChatPanel videoId={video.video_id} matchHeight={!cinemaMode} matchHeightRef={playerWrapRef} />
         )}
         {playlistId && playlistVideos.length > 0 && (

@@ -22,3 +22,6 @@ ytzero-*
 # Logs
 logs/
 *.log
+
+# Graphify output
+graphify-out/
