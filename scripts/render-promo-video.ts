@@ -144,7 +144,7 @@ function outroMarkup(time: number) {
       <text x="640" y="367" text-anchor="middle" fill="url(#headlineGradient)" font-size="61" font-weight="800" letter-spacing="-3">No login required.</text>
       <text x="640" y="421" text-anchor="middle" fill="#aeb9ca" font-size="19">A quiet, self-hosted inbox for the channels you choose.</text>
       <rect x="494" y="472" width="292" height="48" rx="24" fill="#0b1d3e" stroke="#2475e8" stroke-opacity=".75"/>
-      <text x="640" y="503" text-anchor="middle" fill="#d7ecff" font-size="15" font-weight="700" letter-spacing=".6">github.com/Pelski/ytzero</text>
+      <text x="640" y="503" text-anchor="middle" fill="#d7ecff" font-size="15" font-weight="700" letter-spacing=".6">github.com/zachvlat/ytzero</text>
     </g>`;
 }
 

@@ -2,7 +2,7 @@
 # YT Zero — create a Debian LXC on a Proxmox VE host and install YT Zero in it.
 # Run this ON THE PROXMOX HOST (not inside a container):
 #
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Pelski/ytzero/main/scripts/proxmox-lxc.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/zachvlat/ytzero/main/scripts/proxmox-lxc.sh)"
 #
 # The container is unprivileged and gets a DHCP address on vmbr0. YT Zero is
 # installed natively (Bun + systemd, no Docker) by scripts/install.sh.
@@ -19,7 +19,7 @@
 #   YTZERO_VERSION    release tag to install (default: latest)
 set -euo pipefail
 
-REPO="Pelski/ytzero"
+REPO="zachvlat/ytzero"
 # Not HOSTNAME: bash sets that to the PVE node's own name, so the container
 # would inherit it instead of defaulting to "ytzero".
 CT_HOSTNAME="${CT_HOSTNAME:-ytzero}"

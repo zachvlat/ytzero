@@ -1,11 +1,11 @@
 services:
   ytzero:
-    image: ghcr.io/pelski/ytzero:latest
+    image: zatsando/ytzero
     container_name: ytzero
     ports:
       - "3001:3001"
     volumes:
-      - ./data:/data
+      - ./ytzero/data:/data
     environment:
       - IDLE_TIMEOUT_SECONDS=120
       - REFRESH_INTERVAL_MINUTES=5
@@ -14,3 +14,5 @@ services:
       - DB_PATH=/data/db/ytzero.db
       - IMG_CACHE_DIR=/data/imgcache
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true

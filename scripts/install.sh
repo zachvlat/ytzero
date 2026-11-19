@@ -1,20 +1,6 @@
-#!/usr/bin/env bash
-# YT Zero — native installer for Debian/Ubuntu (LXC, VM or bare metal).
-#
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Pelski/ytzero/main/scripts/install.sh)"
-#
-# Re-running the script updates an existing install: the release is replaced,
-# /opt/ytzero/data and /etc/ytzero/ytzero.env are left alone.
-#
-# Knobs (environment):
-#   YTZERO_VERSION   release tag to install, e.g. 2026.08.1 (default: latest)
-#   YTZERO_PORT      port to listen on (default: 3001)
-#   YTZERO_DIR       install directory (default: /opt/ytzero)
-#   YTZERO_DATA      data directory (default: $YTZERO_DIR/data)
-#   YTZERO_DENO_VERSION Deno version used by yt-dlp (default: 2.8.1)
 set -euo pipefail
 
-REPO="Pelski/ytzero"
+REPO="zachvlat/ytzero"
 APP_DIR="${YTZERO_DIR:-/opt/ytzero}"
 DATA_DIR="${YTZERO_DATA:-${APP_DIR}/data}"
 PORT="${YTZERO_PORT:-3001}"
@@ -181,7 +167,7 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   msg "Writing ${ENV_FILE}"
   cat > "${ENV_FILE}" <<EOF
 # YT Zero configuration. Full reference:
-# https://github.com/Pelski/ytzero
+# https://github.com/zachvlat/ytzero
 # Applies on: systemctl restart ytzero
 PORT=${PORT}
 UI_DIST=./public
