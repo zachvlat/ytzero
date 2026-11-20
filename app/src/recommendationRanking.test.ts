@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   diversifyRecommendations,
+  interleaveRecommendationGroups,
   isEligibleRecommendation,
   recommendationHoursNear,
   recommendationProgress,
@@ -118,6 +119,11 @@ describe("recommendation scoring", () => {
 });
 
 describe("recommendation diversification", () => {
+  test("interleaves keyword groups instead of listing them in keyword order", () => {
+    expect(interleaveRecommendationGroups([["a1", "a2", "a3"], ["b1", "b2"], ["c1"]]))
+      .toEqual(["a1", "b1", "c1", "a2", "b2", "a3"]);
+  });
+
   test("is deterministic and prevents one channel from taking the top of the list", () => {
     const ranked = [
       { kind: "local", score: 100, reasons: [], video: candidate({ video_id: "a-1", channel_id: "a" }) },

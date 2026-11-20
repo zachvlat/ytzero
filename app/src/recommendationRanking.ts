@@ -221,3 +221,14 @@ export function diversifyRecommendations<T extends RankedRecommendation>(
   }
   return out;
 }
+
+/** Round-robin across keyword result lists so the feed isn't grouped by keyword order. */
+export function interleaveRecommendationGroups<T>(groups: T[][]): T[] {
+  const out: T[] = [];
+  for (let index = 0; groups.some((group) => index < group.length); index++) {
+    for (const group of groups) {
+      if (index < group.length) out.push(group[index]!);
+    }
+  }
+  return out;
+}

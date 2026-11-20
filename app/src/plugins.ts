@@ -13,6 +13,7 @@ import { normalizeSocialEmojiSkinTone, normalizeSocialReaction } from "./social"
 import { socialWatchPartyStore } from "./socialWatchParties";
 import {
   diversifyRecommendations,
+  interleaveRecommendationGroups,
   isEligibleRecommendation,
   recommendationHoursNear,
   recommendationProgress,
@@ -1139,23 +1140,22 @@ async function searchKeywordRecommendations(uid: number, keywords: string[]): Pr
   // Every search failed (offline, rate limited): throw so the empty result isn't cached and the caller falls back.
   if (searches.every((results) => results === null)) throw lastError ?? new Error("keyword search failed");
 
-  const collected: DiscoveryRecommendation[] = [];
+  const groups: DiscoveryRecommendation[][] = [];
   const seen = new Set<string>();
   const perKeyword = Math.ceil(KEYWORD_POOL_SIZE / keywords.length);
   for (const [index, keyword] of keywords.entries()) {
     const fresh = (searches[index] ?? []).filter((result) => !seen.has(result.videoId));
     for (const result of fresh) seen.add(result.videoId);
-    let taken = 0;
-    for (let start = 0; start < fresh.length && taken < perKeyword && collected.length < KEYWORD_POOL_SIZE; start += KEYWORD_BATCH_SIZE) {
+    const group: DiscoveryRecommendation[] = [];
+    for (let start = 0; start < fresh.length && group.length < perKeyword; start += KEYWORD_BATCH_SIZE) {
       const batch = await inBatches(fresh.slice(start, start + KEYWORD_BATCH_SIZE), (result) => keywordRecommendation(uid, keyword, result));
       for (const recommendation of batch) {
-        if (!recommendation || taken >= perKeyword || collected.length >= KEYWORD_POOL_SIZE) continue;
-        collected.push(recommendation);
-        taken++;
+        if (recommendation && group.length < perKeyword) group.push(recommendation);
       }
     }
+    groups.push(group);
   }
-  return collected;
+  return interleaveRecommendationGroups(groups).slice(0, KEYWORD_POOL_SIZE);
 }
 
 function mixRecommendations(recommendations: DiscoveryRecommendation[], limit: number, settings: Record<string, number>) {
