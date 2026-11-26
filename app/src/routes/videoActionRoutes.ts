@@ -9,6 +9,7 @@ import { savePlaybackContext } from "./playbackRoutes";
 import { completeVideo } from "../videoCompletion";
 import { childLocalOnly } from "../childTime";
 import { ensureOnDemandVideo, OnDemandVideoImportError } from "../onDemandVideoImport";
+import { validYouTubeVideoId } from "../youtubeComments";
 import { claimTubeArchivistWatchedState, enqueueTubeArchivistWatched } from "../tubeArchivist";
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
@@ -66,12 +67,21 @@ api.post("/videos/:id/dequeue", async (c) => {
 api.post("/videos/:id/watch", async (c) => {
   const uid = currentUserId(c);
   const id = c.req.param("id");
-  if (await videoExistsStmt.get(id)) {
-    const body = await c.req.json().catch(() => ({})) as { playback_context?: unknown };
-    if (body.playback_context !== undefined) await savePlaybackContext(uid, id, body.playback_context);
-    await database.prepare("INSERT INTO history (video_id, user_id) VALUES (?, ?)").run(id, uid);
-    refreshDiscoveryInBackground(uid);
+  if (!validYouTubeVideoId(id)) return c.json({ error: "invalid video id" }, 400);
+  if (!await videoExistsStmt.get(id)) {
+    if (childLocalOnly(uid)) return c.json({ error: "restricted" }, 403);
+    // Search and live results are not in the library until a watch page opens them.
+    try {
+      await ensureOnDemandVideo(id, uid);
+    } catch (error) {
+      if (error instanceof OnDemandVideoImportError) return c.json({ error: error.message }, error.status);
+      throw error;
+    }
   }
+  const body = await c.req.json().catch(() => ({})) as { playback_context?: unknown };
+  if (body.playback_context !== undefined) await savePlaybackContext(uid, id, body.playback_context);
+  await database.prepare("INSERT INTO history (video_id, user_id) VALUES (?, ?)").run(id, uid);
+  refreshDiscoveryInBackground(uid);
   return c.json({ ok: true });
 });
 

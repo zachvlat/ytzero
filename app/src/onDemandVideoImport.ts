@@ -61,5 +61,5 @@ async function importVideo(videoId: string, userId?: number): Promise<void> {
       `https://www.youtube.com/channel/${info.channelId}`,
     );
     await persistDirectVideoInfo(info);
-  });
+  })();
 }

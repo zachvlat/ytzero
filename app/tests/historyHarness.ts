@@ -46,7 +46,27 @@ const childHistoryId = childHistory.videos.find((video: any) => video.video_id =
 const childDeleteResponse = await request(child.id, `/history/${childHistoryId}`, "DELETE");
 const childUnwatchResponse = await request(child.id, "/videos/history0001/complete", "DELETE");
 
+// Search results are not in the library when the watch visit is recorded.
+const realFetch = globalThis.fetch;
+globalThis.fetch = (async () => new Response(`ytInitialPlayerResponse = ${JSON.stringify({
+  videoDetails: {
+    videoId: "watchFromSearch",
+    title: "Opened from search",
+    channelId: "UChistory",
+    author: "History channel",
+    shortDescription: "",
+    thumbnail: { thumbnails: [] },
+    viewCount: "1",
+    lengthSeconds: "60",
+  },
+})};`)) as unknown as typeof fetch;
+const externalWatchResponse = await request(1, "/videos/watchFromSearch/watch", "POST");
+globalThis.fetch = realFetch;
+const externalWatchHistory = await (await request(1, "/history?page=0")).json() as any;
+
 console.log("RESULT " + JSON.stringify({
+  externalWatchStatus: externalWatchResponse.status,
+  externalWatchRecorded: externalWatchHistory.videos.some((video: any) => video.video_id === "watchFromSearch"),
   firstStatus: firstResponse.status,
   firstCount: first.videos.length,
   firstHasMore: first.has_more,

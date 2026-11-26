@@ -58,6 +58,21 @@ describe("AsyncTtlCache", () => {
     expect(loads).toBe(3);
   });
 
+  test("keeps the last good result when a refresh fails with stale fallback enabled", async () => {
+    let loads = 0;
+    const cache = new AsyncTtlCache<number>({ ttlMs: 60_000 });
+    const load = async () => {
+      loads++;
+      if (loads === 2) throw new Error("temporary failure");
+      return loads;
+    };
+
+    expect(await cache.run("keywords", load, false, true)).toBe(1);
+    expect(await cache.run("keywords", load, true, true)).toBe(1);
+    expect(loads).toBe(2);
+    expect(await cache.run("keywords", async () => 3, true, true)).toBe(3);
+  });
+
   test("force skips a completed result but shares in-flight work", async () => {
     let loads = 0;
     const cache = new AsyncTtlCache<number>({ ttlMs: 60_000 });

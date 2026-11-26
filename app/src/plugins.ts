@@ -1090,7 +1090,13 @@ async function recommendationPool(uid: number, options: RecommendationFeedOption
   // Child profiles limited to local or downloaded videos must never get live YouTube search results.
   if (keywords.length > 0 && options.allowExternal !== false && !options.downloadsOnly) {
     try {
-      return await keywordRecommendationCache.run(`${uid}\n${keywords.join(",")}`, () => searchKeywordRecommendations(uid, keywords), Boolean(options.refresh));
+      // A failed refresh keeps the previous keyword pool instead of showing feed videos.
+      return await keywordRecommendationCache.run(
+        `${uid}\n${keywords.join(",")}`,
+        () => searchKeywordRecommendations(uid, keywords),
+        Boolean(options.refresh),
+        true,
+      );
     } catch (error) {
       log.warn("discovery.keyword_search_failed", { error: error instanceof Error ? error.message : String(error) });
     }

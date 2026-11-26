@@ -52,4 +52,9 @@ describe("watch history routes", () => {
     expect(result.childUnwatchStatus).toBe(200);
     expect(result.childRowsAfterAttempts).toBe(1);
   });
+
+  test("records visits to videos imported after the watch request", () => {
+    expect(result.externalWatchStatus).toBe(200);
+    expect(result.externalWatchRecorded).toBe(true);
+  });
 });

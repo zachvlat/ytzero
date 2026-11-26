@@ -17,7 +17,8 @@ export class AsyncTtlCache<T> {
     this.maxEntries = options.maxEntries ?? 256;
   }
 
-  run(key: string, load: () => Promise<T>, force = false): Promise<T> {
+  run(key: string, load: () => Promise<T>, force = false, keepStaleOnError = false): Promise<T> {
+    const previous = this.entries.get(key);
     this.pruneExpired(this.now());
 
     const existing = this.entries.get(key);
@@ -39,8 +40,13 @@ export class AsyncTtlCache<T> {
           return result;
         },
         (error) => {
-          // Failed work must remain retryable.
-          if (this.entries.get(key) === entry) this.entries.delete(key);
+          if (this.entries.get(key) === entry) {
+            if (keepStaleOnError && previous) this.entries.set(key, previous);
+            else this.entries.delete(key);
+          }
+          // Failed work must remain retryable; a stale fallback still resolves
+          // this call so a failed refresh cannot replace keywords with feed videos.
+          if (keepStaleOnError && previous) return previous.promise;
           throw error;
         },
       ),
